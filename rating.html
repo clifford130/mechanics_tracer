@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vehicle Repair Rating System</title>
+  <style>
+    .star-rating {
+      unicode-bidi: bidi-override;
+      direction: rtl;
+      text-align: left;
+      display: inline-block;
+      position: relative;
+      color: #c5c5c5;
+      font-size: 30px;
+      cursor: pointer; 
+    }
+
+    .star-rating > span {
+      display: inline-block;
+      position: relative;
+      width: 1.1em;
+    }
+
+    .star-rating-empty:before,
+    .star-rating:empty:before {
+      content: "☆☆☆☆☆";
+    }
+
+    .star-rating-fill:before {
+      content: "★★★★★";
+      color: #f8d320;
+      position: absolute;
+      z-index: 1;
+      overflow: hidden;
+      width: 0;
+    }
+
+    .star-rating:hover .star-rating-fill:before {
+      width: calc(100% * attr(data-rating));
+    }
+
+    #feedback {
+      width: 100%;
+      height: 100px;
+      margin-bottom: 10px;
+    }
+
+    #feedback-messages {
+      margin-top: 10px;
+      color: green;
+    }
+    .star-rating-empty:before,
+    .star-rating:empty:before {
+      content: "☆☆☆☆☆";
+      color: blue; 
+    }
+
+    .star-rating-fill:before {
+      content: "★★★★★";
+      color: #f8d320;
+      position: absolute;
+      z-index: 1;
+      overflow: hidden;
+      width: 0;
+    }
+
+  </style>
+</head>
+<body>
+  <div class="mechanic-profile">
+    <h2>John's Auto Repair</h2>
+    <div class="star-rating" data-rating="0" data-set="false"> 
+      <span data-rating="1"></span>
+      <span data-rating="2"></span>
+      <span data-rating="3"></span>
+      <span data-rating="4"></span>
+      <span data-rating="5"></span>
+    </div>
+    <span id="average-rating">4.2</span> (based on 0 reviews)
+  </div>
+
+  <form id="feedback-form">
+    <textarea id="feedback" placeholder="Leave your feedback here..."></textarea>
+    <button type="submit">Submit</button>
+  </form>
+  <div id="feedback-messages"></div>
+
+  <script>
+    document.getElementById("average-rating").innerText = "4.2";
+
+    const stars = document.querySelectorAll(".star-rating span");
+
+    stars.forEach(star => {
+      star.addEventListener("mouseover", function() {
+        const rating = parseFloat(this.dataset.rating);
+        const parent = this.parentNode;
+        if (!parent.dataset.set) {
+          parent.querySelector(".star-rating-fill:before").style.width = `calc(100% * ${rating})`;
+        }
+      });
+
+      star.addEventListener("mouseout", function() {
+        const parent = this.parentNode;
+        if (!parent.dataset.set) {
+          parent.querySelector(".star-rating-fill:before").style.width = "0";
+        }
+      });
+
+      star.addEventListener("click", function() {
+        const rating = parseFloat(this.dataset.rating);
+        const parent = this.parentNode;
+        parent.dataset.rating = rating;
+        parent.dataset.set = true;
+      });
+    });
+
+    document.getElementById("feedback-form").addEventListener("submit", function(event) {
+      event.preventDefault();
+      const feedback = document.getElementById("feedback").value;
+      const rating = parseFloat(document.querySelector(".star-rating").dataset.rating);
+      
+      console.log("Feedback:", feedback);
+      console.log("Rating:", rating);
+
+      document.getElementById("feedback-messages").innerText = "Feedback submitted successfully!";55
+      document.getElementById("feedback").value = "";
+    });
+  </script>
+</body>
+</html>
