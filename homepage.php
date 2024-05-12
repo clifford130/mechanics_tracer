@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>homepage</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
   <link rel="stylesheet" href="homepagea.css">
   <style>
 .typing-container {
@@ -39,18 +40,17 @@
 
 <body style="background-color: white;">
   <section class="header">
-    <nav>
-      <a href="homepage.php"><img src="logo.jpg">mechanic tracer</a>
-      <button class="menu-toggle">Menu</button>
-      <div class="nav-links" id="navLinks">
-        <ul>
-          <li class="link"><a href="login.php" styyle="border: 1px solid black; height: 20px; width: 40px; font-size: larger; color: red;"><button  style="border-radius: 10px;padding-top: 5px;padding-bottom: 5px; padding-left: 3px; padding-right: 3px; background-color: blue; color: white; ">LOGIN</button></a></li>
-          <li class="link"><a href="#services" stylre="border: 1px solid black; height: 20px; width: 40px; font-size: larger; color: red;"><button  style="border-radius: 10px;padding-top: 5px;padding-bottom: 5px; padding-left: 3px; padding-right: 3px; background-color: blue; color: white; ">SERVICES</button></a></li>
-
-          <li class="link"><a href="#contact" stryle="border: 1px solid black; height: 20px; width: 40px; font-size: larger; color: red;"><button style="border-radius: 10px;padding-top: 5px;padding-bottom: 5px; padding-left: 3px; padding-right: 3px; background-color: blue; color: white; ">CONTACT US</button></a></li>
-        </ul>
-      </div>
-    </nav>
+      <ul class="nav justify-content-end">
+  <li class="nav-item">
+    <a class="nav-link active" aria-current="page" href="login.php">login</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="#services">services</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="#contact">contact us</a>
+  </li>
+</ul>
     <div class="text-box">
       <h1>Find Trusted Mechanics Instantly</h1>
       <p style="font-size: larger;" color:white;>
@@ -160,6 +160,7 @@ No more searching all over the internet or relying on word-of-mouth to find the 
 });
 
   </script>
+      <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
 </body>
 
 </html>
