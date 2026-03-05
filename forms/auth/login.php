@@ -40,7 +40,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
                     header("Location: ".BASE_URL."profile/mechanic_profile.php");
                 }
                 elseif($user['role'] == "driver" && $user['profile_completed'] == 1){
-                    header("Location: ".BASE_URL."dashboard/driver_dashboard.php");
+                    header("Location: ".BASE_URL."dashboard/dashboard.php");
                 }
                 elseif($user['role'] == "mechanic" && $user['profile_completed'] == 1){
                     header("Location: ".BASE_URL."./dashboard/mechanic_dashboard.php");
