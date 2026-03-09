@@ -7,7 +7,19 @@ if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'driver'){
     exit();
 }
 
-$user_name = $_SESSION['name'] ?? "Driver";
+$user_id = $_SESSION['user_id'];
+$user_name = "Driver";
+
+// Fetch driver name from users table
+$stmt = $conn->prepare("SELECT full_name FROM users WHERE id = ?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$result = $stmt->get_result();
+
+if($row = $result->fetch_assoc()){
+    // Only take the first name
+    $user_name = explode(" ", $row['full_name'])[0];
+}
 
 // Fetch mechanics from DB
 $mechanics = [];
@@ -77,7 +89,7 @@ body{background:#f4f6f8;}
 </div>
 <div class="main">
 <div class="header">
-<h1>Welcome, <?php echo htmlspecialchars($user_name); ?> 👋</h1>
+<h1 id="driverGreeting"></h1>
 <p>Find and book mechanics near you</p>
 </div>
 <form class="booking-form">
@@ -104,8 +116,65 @@ body{background:#f4f6f8;}
 </div>
 </div>
 
+<!-- Booking Modal -->
+<div id="bookingModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+
+<div style="background:white; padding:20px; border-radius:10px; width:300px; text-align:center;">
+
+<h3>Confirm Booking</h3>
+
+<p id="bookingText"></p>
+
+<div style="margin-top:15px;">
+
+<button id="confirmBookBtn"
+style="background:#3498db;color:white;padding:8px 15px;border:none;border-radius:6px;">
+Book
+</button>
+
+<button onclick="closeBookingModal()"
+style="background:#ccc;padding:8px 15px;border:none;border-radius:6px;">
+Cancel
+</button>
+
+</div>
+
+</div>
+</div>
+
+
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+
+    // ---------- smart greeting ----------
+var driverName = "<?php echo htmlspecialchars($user_name); ?>";
+
+function getGreeting(){
+    var hour = new Date().getHours();
+
+    if(hour < 12){
+        return "Good morning";
+    }
+    else if(hour < 17){
+        return "Good afternoon";
+    }
+    else{
+        return "Good evening";
+    }
+}
+
+function loadDriverGreeting(){
+    var greeting = getGreeting();
+    var el = document.getElementById("driverGreeting");
+    if(el){
+        el.textContent = greeting + " " + driverName + " 👋";
+    }
+}
+
+// run when page loads
+loadDriverGreeting();
+
     // ---------- helper UI: resize map so it never disappears ----------
 function resizeMap() {
   var header = document.querySelector('.header');
@@ -349,9 +418,56 @@ function focusMechanic(id) {
     drawRoute(mech);
 }
 
-function bookMechanic(id) {
-    alert("Booking request sent to mechanic ID: " + id);
+// booking mechanic 
+var selectedMechanic = null;
+
+function bookMechanic(id){
+
+    selectedMechanic = id;
+
+    var mech = mechanics.find(m => m.id == id);
+
+    document.getElementById("bookingText").innerHTML =
+        "Send booking request to <b>"+mech.garage_name+"</b>?";
+
+    document.getElementById("bookingModal").style.display = "flex";
 }
+
+function closeBookingModal(){
+    document.getElementById("bookingModal").style.display="none";
+}
+
+document.getElementById("confirmBookBtn").onclick = function(){
+
+    let service = document.getElementById("serviceType").value;
+    let vehicle = document.getElementById("vehicleType").value;
+
+    fetch("../forms/bookings/create_booking.php",{
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+            mechanic_id:selectedMechanic,
+            service:service,
+            vehicle:vehicle,
+            lat:driverLat,
+            lng:driverLng
+        })
+    })
+    .then(res=>res.json())
+    .then(data=>{
+
+        if(data.success){
+            alert("Booking request sent successfully ✔");
+            closeBookingModal();
+        }
+        else{
+            alert("Booking failed");
+        }
+
+    });
+};
 
 // ---------- place markers and fetch mode routes intelligently ----------
 function loadMechanics() {
@@ -451,6 +567,10 @@ function searchMechanics() {
 
 // initial layout fix
 setTimeout(function(){ resizeMap(); }, 300);
+
+
+// styling markers
+
 </script>
 </body>
 </html>
