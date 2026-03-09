@@ -82,7 +82,7 @@ body{background:#f4f6f8;}
 <li><a href="dashboard.php">🏠 <span class="text">Dashboard</span></a></li>
 <li><a href="profile.php">👤 <span class="text">My Profile</span></a></li>
 <li><a href="find_mechanics.php">🔍 <span class="text">Find Mechanics</span></a></li>
-<li><a href="bookings.php">📋 <span class="text">My Bookings</span></a></li>
+<li><a href="../forms/bookings/driver_bookings.php">📋 <span class="text">My Bookings</span></a></li>
 <li><a href="rate_mechanic.php">⭐ <span class="text">Ratings</span></a></li>
 <li><a href="../forms/auth/logout.php">🚪 <span class="text">Logout</span></a></li>
 </ul>
