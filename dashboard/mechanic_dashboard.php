@@ -1,3 +1,4 @@
+```php
 <?php
 session_start();
 require_once($_SERVER['DOCUMENT_ROOT'] . "/mechanics_tracer/forms/config.php");
@@ -230,7 +231,7 @@ else $greeting = "Good evening";
         .card.completed .card-right { background: #dbeafe; color: #1e40af; }
         .card.cancelled .card-right { background: #fee2e2; color: #b91c1c; }
         
-        /* Tabs (now without counts – pure navigation) */
+        /* Tabs (no counts – pure navigation) */
         .tabs {
             display: flex;
             flex-wrap: wrap;
@@ -411,9 +412,9 @@ else $greeting = "Good evening";
         </div>
         <nav class="nav-links">
             <a href="#" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-            <a href="#"><i class="fas fa-calendar-check"></i> Bookings</a>
-            <a href="#"><i class="fas fa-user-cog"></i> Profile</a>
-            <a href="#"><i class="fas fa-sliders-h"></i> Settings</a>
+            <a href="bookings.php"><i class="fas fa-calendar-check"></i> Bookings</a>
+            <a href="profile.php"><i class="fas fa-user-cog"></i> Profile</a>
+            <a href="settings.php"><i class="fas fa-sliders-h"></i> Settings</a>
         </nav>
         <div class="sidebar-footer">
             <a href="/mechanics_tracer/forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -536,112 +537,124 @@ else $greeting = "Good evening";
         if(el) el.classList.add('active');
     }
 
-    // Map variables
+    // ---------- Map with fix (reuse instance) ----------
     let map = null;
+    let mapInitialized = false;
     let mechMarker = null, driverMarker = null, routeLayer = null, currentInfoControl = null;
 
-    function clearMapLayers() {
-        if(routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
-        if(mechMarker) { map.removeLayer(mechMarker); mechMarker = null; }
-        if(driverMarker) { map.removeLayer(driverMarker); driverMarker = null; }
-        if(currentInfoControl && map) { map.removeControl(currentInfoControl); currentInfoControl = null; }
-    }
-
-    // Open map modal (no phone number)
+    // Open modal and show map with mechanic/driver markers
     async function openMapModal(mechLat, mechLng, driverLat, driverLng, driverName, vehicleInfo, serviceRequested, notes) {
         document.getElementById('mapTitle').textContent = driverName ? driverName + "'s Location" : "Driver Location";
         document.getElementById('mapModal').style.display = 'block';
 
         const validCoord = (v) => v !== null && v !== undefined && v !== '' && !isNaN(parseFloat(v)) && parseFloat(v) !== 0;
-        if(!validCoord(driverLat) || !validCoord(driverLng)){
+        if (!validCoord(driverLat) || !validCoord(driverLng)) {
             alert("Driver location not available.");
             return;
         }
 
-        setTimeout(async () => {
-            if(map) { map.remove(); map = null; }
-            clearMapLayers();
-
-            map = L.map('map').setView([ (mechLat + driverLat)/2, (mechLng + driverLng)/2 ], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-
-            const mechanicIcon = L.icon({
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-                shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-                iconSize: [25,41], iconAnchor: [12,41], popupAnchor: [1,-34], shadowSize: [41,41]
-            });
-            const driverIcon = L.icon({
-                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-                shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-                iconSize: [25,41], iconAnchor: [12,41], popupAnchor: [1,-34], shadowSize: [41,41]
-            });
-
-            mechMarker = L.marker([mechLat, mechLng], { icon: mechanicIcon }).addTo(map);
-            driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon })
-                .addTo(map)
-                .bindPopup(`
-                    <div style="font-size:14px">
-                        <strong>${driverName}</strong><br>
-                        Vehicle: ${vehicleInfo || ''}<br>
-                        Service: ${serviceRequested || ''}<br>
-                        Notes: ${notes || ''}
-                    </div>
-                `).openPopup();
-
-            // Fetch shortest route
-            const serviceUrl = `https://router.project-osrm.org/route/v1/driving/${mechLng},${mechLat};${driverLng},${driverLat}?alternatives=true&overview=full&geometries=geojson`;
-            try {
-                const resp = await fetch(serviceUrl);
-                const data = await resp.json();
-                if (!data || !data.routes || data.routes.length === 0) {
-                    L.featureGroup([mechMarker, driverMarker]).getBounds().pad(0.3);
-                    alert('No route found between mechanic and driver.');
-                    return;
-                }
-                let best = data.routes.reduce((a,b) => a.distance <= b.distance ? a : b);
-                routeLayer = L.geoJSON(best.geometry, { style: { color: '#2b8ae2', weight: 6 } }).addTo(map);
-                const bounds = routeLayer.getBounds();
-                bounds.extend(mechMarker.getLatLng());
-                bounds.extend(driverMarker.getLatLng());
-                map.fitBounds(bounds.pad(0.2));
-
-                const distKm = (best.distance/1000).toFixed(2);
-                const durationMin = Math.round(best.duration/60);
-                const info = L.control({ position: 'topright' });
-                info.onAdd = function() {
-                    const d = L.DomUtil.create('div');
-                    d.style.background = 'rgba(255,255,255,0.95)';
-                    d.style.padding = '8px';
-                    d.style.borderRadius = '6px';
-                    d.style.boxShadow = '0 2px 6px rgba(0,0,0,0.12)';
-                    d.innerHTML = `<strong>Shortest route</strong><br>Distance: ${distKm} km<br>ETA: ${durationMin} min`;
-                    return d;
-                };
-                info.addTo(map);
-                currentInfoControl = info;
-            } catch(err) {
-                console.error('Routing failed', err);
-                L.featureGroup([mechMarker, driverMarker]).getBounds().pad(0.3);
-                alert('Routing failed.');
-            }
-        }, 100);
+        // If map not yet created, create it after modal is visible
+        if (!mapInitialized) {
+            setTimeout(() => {
+                map = L.map('map').setView([(mechLat + driverLat) / 2, (mechLng + driverLng) / 2], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+                mapInitialized = true;
+                // Now add markers and route
+                updateMapContent(mechLat, mechLng, driverLat, driverLng, driverName, vehicleInfo, serviceRequested, notes);
+            }, 200);
+        } else {
+            // Map already exists, just update content and ensure correct size
+            setTimeout(() => {
+                map.invalidateSize(); // critical after showing hidden container
+                updateMapContent(mechLat, mechLng, driverLat, driverLng, driverName, vehicleInfo, serviceRequested, notes);
+            }, 200);
+        }
     }
 
+    // Update markers and route on existing map
+    async function updateMapContent(mechLat, mechLng, driverLat, driverLng, driverName, vehicleInfo, serviceRequested, notes) {
+        // Clear previous layers
+        if (mechMarker) map.removeLayer(mechMarker);
+        if (driverMarker) map.removeLayer(driverMarker);
+        if (routeLayer) map.removeLayer(routeLayer);
+        if (currentInfoControl) map.removeControl(currentInfoControl);
+
+        // Icons
+        const mechanicIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+        const driverIcon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+            iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+        });
+
+        mechMarker = L.marker([mechLat, mechLng], { icon: mechanicIcon }).addTo(map);
+        driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon })
+            .addTo(map)
+            .bindPopup(`
+                <div style="font-size:14px">
+                    <strong>${driverName}</strong><br>
+                    Vehicle: ${vehicleInfo || ''}<br>
+                    Service: ${serviceRequested || ''}<br>
+                    Notes: ${notes || ''}
+                </div>
+            `).openPopup();
+
+        // Fetch shortest route
+        const serviceUrl = `https://router.project-osrm.org/route/v1/driving/${mechLng},${mechLat};${driverLng},${driverLat}?alternatives=true&overview=full&geometries=geojson`;
+        try {
+            const resp = await fetch(serviceUrl);
+            const data = await resp.json();
+            if (!data || !data.routes || data.routes.length === 0) {
+                const group = L.featureGroup([mechMarker, driverMarker]);
+                map.fitBounds(group.getBounds().pad(0.3));
+                alert('No route found between mechanic and driver.');
+                return;
+            }
+            let best = data.routes.reduce((a, b) => a.distance <= b.distance ? a : b);
+            routeLayer = L.geoJSON(best.geometry, { style: { color: '#2b8ae2', weight: 6 } }).addTo(map);
+            const bounds = routeLayer.getBounds();
+            bounds.extend(mechMarker.getLatLng());
+            bounds.extend(driverMarker.getLatLng());
+            map.fitBounds(bounds.pad(0.2));
+
+            const distKm = (best.distance / 1000).toFixed(2);
+            const durationMin = Math.round(best.duration / 60);
+            const info = L.control({ position: 'topright' });
+            info.onAdd = function () {
+                const d = L.DomUtil.create('div');
+                d.style.background = 'rgba(255,255,255,0.95)';
+                d.style.padding = '8px';
+                d.style.borderRadius = '6px';
+                d.style.boxShadow = '0 2px 6px rgba(0,0,0,0.12)';
+                d.innerHTML = `<strong>Shortest route</strong><br>Distance: ${distKm} km<br>ETA: ${durationMin} min`;
+                return d;
+            };
+            info.addTo(map);
+            currentInfoControl = info;
+        } catch (err) {
+            console.error('Routing failed', err);
+            const group = L.featureGroup([mechMarker, driverMarker]);
+            map.fitBounds(group.getBounds().pad(0.3));
+            alert('Routing failed.');
+        }
+    }
+
+    // Close modal (keep map instance)
     function closeMapModal() {
         document.getElementById('mapModal').style.display = 'none';
-        if(map) {
-            if(currentInfoControl) map.removeControl(currentInfoControl);
-            map.remove();
-            map = null;
-        }
-        clearMapLayers();
+        // Optionally clear markers to save memory, but not required
     }
 
-    window.onclick = function(event) {
-        if(event.target == document.getElementById('mapModal')) closeMapModal();
+    // Close modal when clicking outside
+    window.onclick = function (event) {
+        if (event.target == document.getElementById('mapModal')) closeMapModal();
     }
 
-    // Notification popup
+    // ---------- Notification popup ----------
     function showPopup(message, success = true) {
         const popup = document.getElementById("popup");
         popup.innerText = message || '';
@@ -652,7 +665,7 @@ else $greeting = "Good evening";
         setTimeout(() => { popup.style.display = 'none'; popup.style.opacity = '1'; }, 2600);
     }
 
-    // AJAX functions (preserved)
+    // ---------- AJAX functions ----------
     async function postForm(url, params) {
         try {
             const body = new URLSearchParams(params).toString();
@@ -685,7 +698,7 @@ else $greeting = "Good evening";
         if(data.status === 'success') reloadBookings();
     }
 
-    // Reload bookings – updates only the cards and sections (tabs are now static)
+    // ---------- Reload bookings (updates cards and sections) ----------
     let reloadInProgress = false;
     function reloadBookings() {
         if(reloadInProgress) return;
@@ -707,7 +720,7 @@ else $greeting = "Good evening";
                 if(newSection && curSection) curSection.innerHTML = newSection.innerHTML;
             });
 
-            // Update card counts (single source)
+            // Update card counts
             const pendingCount = (doc.querySelectorAll('#pending .booking') || []).length;
             const activeCount = (doc.querySelectorAll('#active .booking') || []).length;
             const completedCount = (doc.querySelectorAll('#completed .booking') || []).length;
@@ -782,3 +795,4 @@ function renderBooking($bookings, $mechanic_lat, $mechanic_lng) {
 
 </body>
 </html>
+```
