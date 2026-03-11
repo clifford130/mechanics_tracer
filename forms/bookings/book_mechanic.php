@@ -61,7 +61,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
         if($stmt->affected_rows > 0){
             $booking_id = $stmt->insert_id;
             // Adjust chat.php path if needed
-            header("Location: /mechanics_tracer/forms/chat.php?booking_id=".$booking_id);
+            header("Location: /mechanics_tracer/forms/bookings/driver_bookings.php?booking_id=".$booking_id);
             exit();
         } else {
             $error = "Failed to create booking. Please try again.";

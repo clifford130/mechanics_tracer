@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Mar 09, 2026 at 03:51 PM
+-- Generation Time: Mar 09, 2026 at 09:19 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -31,15 +31,26 @@ CREATE TABLE `bookings` (
   `id` int(11) NOT NULL,
   `driver_id` int(11) NOT NULL,
   `mechanic_id` int(11) NOT NULL,
-  `service_requested` varchar(100) DEFAULT NULL,
+  `service_requested` varchar(255) DEFAULT NULL,
   `vehicle_type` varchar(50) DEFAULT NULL,
   `booking_status` enum('pending','accepted','completed','cancelled') DEFAULT 'pending',
+  `accepted_at` datetime DEFAULT NULL,
   `driver_latitude` decimal(9,6) DEFAULT NULL,
   `driver_longitude` decimal(9,6) DEFAULT NULL,
+  `driver_address` varchar(255) DEFAULT NULL,
   `notes` text DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `bookings`
+--
+
+INSERT INTO `bookings` (`id`, `driver_id`, `mechanic_id`, `service_requested`, `vehicle_type`, `booking_status`, `accepted_at`, `driver_latitude`, `driver_longitude`, `driver_address`, `notes`, `created_at`, `updated_at`) VALUES
+(2, 6, 30, 'Engine Repair', 'Car', 'accepted', NULL, 0.000000, 0.000000, NULL, 'engine cant come on', '2026-03-09 18:33:58', '2026-03-09 23:05:06'),
+(3, 6, 30, 'Engine Repair', 'Car', 'cancelled', NULL, -0.825284, 34.617654, NULL, 'car has a lot of smoke\r\n', '2026-03-09 20:42:39', '2026-03-09 22:09:17'),
+(4, 6, 30, 'Engine Repair', 'Car', 'cancelled', NULL, -0.825284, 34.617654, NULL, 'tire burst', '2026-03-09 20:51:31', '2026-03-09 21:54:13');
 
 -- --------------------------------------------------------
 
@@ -217,7 +228,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `drivers`
