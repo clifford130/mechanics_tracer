@@ -41,105 +41,275 @@ if($res){
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Driver Dashboard</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
-body{background:#f4f6f8;}
-.sidebar{position:fixed;top:0;left:0;width:230px;height:100vh;background:#2c3e50;color:white;transition:0.3s;z-index:1000;overflow:auto;}
-.sidebar.collapsed{width:70px;}
-.sidebar h2{padding:20px;text-align:center;font-size:1.2rem;}
-.sidebar ul{list-style:none;}
-.sidebar ul li a{display:flex;align-items:center;gap:10px;padding:15px 20px;color:white;text-decoration:none;}
-.sidebar ul li a:hover{background:#3498db;}
-.sidebar span.text{white-space:nowrap;}
-.sidebar.collapsed span.text{display:none;}
-.toggle-btn{position:absolute;top:15px;right:-15px;background:#3498db;color:white;padding:6px 9px;border-radius:50%;cursor:pointer;}
-.hamburger{display:none;position:fixed;top:15px;left:15px;font-size:28px;color:#2c3e50;cursor:pointer;z-index:1100;}
-.main{margin-left:230px;padding:20px;transition:0.3s;display:flex;flex-direction:column;}
-.sidebar.collapsed ~ .main{margin-left:70px;}
-.header{background:linear-gradient(135deg,#2c3e50,#3498db);color:white;padding:20px;border-radius:12px;margin-bottom:20px;width:100%;}
-.booking-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-bottom:20px;width:100%;}
-.booking-form select,.booking-form input,.booking-form button{padding:12px;border-radius:8px;border:1px solid #ccc;font-size:1rem;}
-.booking-form button{background:#3498db;color:white;border:none;cursor:pointer;}
-.dashboard-container{display:flex;gap:20px;}
-#map{flex:1;height:600px;border-radius:12px;}
-.results{width:320px;max-height:600px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;}
-.result-card{background:white;padding:15px;border-radius:12px;box-shadow:0 5px 15px rgba(0,0,0,0.1);}
-.result-card button{margin-top:8px;padding:6px 10px;background:#3498db;color:white;border:none;border-radius:6px;cursor:pointer;width:48%;margin-right:2%;}
-.result-card button:last-child{margin-right:0;}
-@media(max-width:900px){
-    .dashboard-container{flex-direction:column;}
-    #map{height:400px;width:100%;}
-    .results{width:100%;max-height:250px;flex-direction:row;overflow-x:auto;}
+body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden;}
+
+/* Accessibility helpers */
+.sr-only{
+    position:absolute;
+    width:1px;
+    height:1px;
+    padding:0;
+    margin:-1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+    border:0;
+}
+
+/* Layout (match mechanic dashboard) */
+.app-wrapper{display:flex;flex:1;}
+
+/* Sidebar (match mechanic dashboard) */
+.sidebar{
+    width:260px;
+    background:#1e293b;
+    color:#e2e8f0;
+    display:flex;
+    flex-direction:column;
+    transition:transform 0.3s ease;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+}
+.sidebar-header{padding:24px 20px;border-bottom:1px solid #334155;}
+.sidebar-header h2{font-size:1.4rem;font-weight:600;color:white;margin-bottom:4px;}
+.sidebar-header p{font-size:0.9rem;color:#94a3b8;}
+.nav-links{flex:1;padding:20px 0;}
+.nav-links a{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:12px 20px;
+    color:#cbd5e1;
+    text-decoration:none;
+    font-size:1rem;
+    transition:0.2s;
+}
+.nav-links a i{width:24px;text-align:center;}
+.nav-links a:hover,.nav-links a.active{background:#2d3a4f;color:white;border-left:4px solid #1890ff;}
+.sidebar-footer{padding:20px;border-top:1px solid #334155;}
+.sidebar-footer a{display:flex;align-items:center;gap:12px;color:#f87171;text-decoration:none;font-weight:500;}
+.sidebar-footer a i{width:24px;}
+
+/* Main content */
+.main-content{
+    flex:1;
+    padding:24px 32px;
+    overflow-y:auto;
+    max-width:1400px;
+    margin:0 auto;
+    width:100%;
+}
+
+/* Top bar */
+.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:15px;}
+.greeting h1{font-size:1.8rem;color:#0f172a;font-weight:600;}
+.greeting p{color:#475569;margin-top:4px;font-size:1rem;}
+.menu-toggle{
+    background:none;border:none;font-size:1.8rem;color:#1e293b;cursor:pointer;display:none;
+}
+
+/* Search pill (Uber‑style over map) */
+.search-card{
+    position:absolute;
+    top:16px;
+    left:50%;
+    transform:translateX(-50%);
+    z-index:500;
+    background:white;
+    border-radius:999px;
+    padding:6px 10px;
+    box-shadow:0 8px 24px rgba(15,23,42,0.25);
+    border:1px solid rgba(148,163,184,0.5);
+}
+.booking-form{
+    display:flex;
+    align-items:center;
+    gap:8px;
+}
+.booking-form select{
+    padding:8px 12px;
+    border-radius:999px;
+    border:1px solid transparent;
+    font-size:0.95rem;
+    outline:none;
+    background:#f1f5f9;
+}
+.booking-form select:focus{border-color:#1890ff;box-shadow:0 0 0 2px rgba(24,144,255,0.35);background:#ffffff;}
+.booking-form button{
+    padding:9px 14px;
+    border-radius:999px;
+    background:#111827;
+    color:#f9fafb;
+    border:none;
+    cursor:pointer;
+    font-weight:600;
+    font-size:0.9rem;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+}
+.booking-form button:hover{filter:brightness(0.97);}
+
+/* Map + bottom sheet results (Uber‑like) */
+.map-wrapper{
+    position:relative;
+    border-radius:24px;
+    overflow:hidden;
+    box-shadow:0 10px 30px rgba(15,23,42,0.18);
+    border:1px solid #e2e8f0;
+    background:#020617;
+}
+#map{
+    height:calc(100vh - 180px);
+    min-height:420px;
+    width:100%;
+}
+.results{
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    max-height:45vh;
+    background:rgba(248,250,252,0.98);
+    backdrop-filter:blur(10px);
+    border-radius:18px 18px 0 0;
+    padding:12px 14px 10px;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+.results::before{
+    content:"";
+    width:42px;
+    height:4px;
+    border-radius:999px;
+    background:#cbd5f5;
+    opacity:0.8;
+    position:sticky;
+    top:-4px;
+    margin:0 auto 6px;
+    display:block;
+}
+.result-card{
+    background:white;
+    padding:16px 16px;
+    border-radius:16px;
+    border:1px solid #e9edf2;
+    box-shadow:0 2px 8px rgba(0,0,0,0.02);
+}
+.result-card.nearest{border-color:#1890ff;background:#f0f7ff;}
+.meta{color:#0f172a;font-weight:700;margin-bottom:6px;}
+.small{color:#475569;font-size:0.95rem;margin-top:4px;}
+.result-actions{display:flex;gap:10px;margin-top:10px;}
+.result-actions button{
+    flex:1;
+    padding:10px 12px;
+    background:#1890ff;
+    color:white;
+    border:none;
+    border-radius:999px;
+    cursor:pointer;
+    font-weight:600;
+    font-size:0.9rem;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+}
+.result-actions button.secondary{background:#0f172a;}
+.result-actions button:hover{filter:brightness(0.95);transform:translateY(-1px);}
+
+/* Responsive (match mechanic behavior) */
+@media (max-width: 1024px){
+    #map{height:calc(100vh - 160px);}
+}
+@media (max-width: 768px){
+    .app-wrapper{flex-direction:column;}
+    .sidebar{
+        position:fixed;
+        left:0;top:0;
+        z-index:1000;
+        transform:translateX(-100%);
+        width:280px;
+        box-shadow:4px 0 20px rgba(0,0,0,0.1);
+    }
+    .sidebar.open{transform:translateX(0);}
+    .menu-toggle{display:block;}
+    .main-content{padding:16px;}
+    .search-card{
+        top:14px;
+        left:50%;
+        transform:translateX(-50%);
+        width:auto;
+        max-width:92%;
+    }
+    .booking-form{flex-wrap:nowrap;}
+    .booking-form select{max-width:170px;}
+    .results{
+        max-height:55vh;
+        padding:10px 10px 8px;
+    }
 }
 </style>
 </head>
 <body>
-<div class="hamburger" onclick="toggleMobile()">☰</div>
-<div class="sidebar" id="sidebar">
-<div class="toggle-btn" onclick="toggleDesktop()">☰</div>
-<h2><?php echo htmlspecialchars($user_name); ?></h2>
-<ul>
-<li><a href="dashboard.php">🏠 <span class="text">Dashboard</span></a></li>
-<li><a href="profile.php">👤 <span class="text">My Profile</span></a></li>
-<li><a href="find_mechanics.php">🔍 <span class="text">Find Mechanics</span></a></li>
-<li><a href="../forms/bookings/driver_bookings.php">📋 <span class="text">My Bookings</span></a></li>
-<li><a href="rate_mechanic.php">⭐ <span class="text">Ratings</span></a></li>
-<li><a href="../forms/auth/logout.php">🚪 <span class="text">Logout</span></a></li>
-</ul>
-</div>
-<div class="main">
-<div class="header">
-<h1 id="driverGreeting"></h1>
-<p>Find and book mechanics near you</p>
-</div>
-<form class="booking-form">
-<select id="serviceType">
-<option value="">Select Service</option>
-<option value="engine">Engine</option>
-<option value="tyres">Tyres</option>
-<option value="battery">Battery</option>
-<option value="brakes">Brakes</option>
-</select>
-<select id="vehicleType">
-<option value="">Vehicle Type</option>
-<option value="car">Car</option>
-<option value="truck">Truck</option>
-<option value="motorcycle">Motorcycle</option>
-<option value="motorbike">Motorbike</option>
-</select>
-<button type="button" onclick="searchMechanics()">Search</button>
-</form>
+<div class="app-wrapper">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h2><i class="fas fa-car" style="margin-right: 8px;"></i><?php echo htmlspecialchars($user_name); ?></h2>
+      <p id="driverGreetingSub">Find and book mechanics near you</p>
+    </div>
+    <nav class="nav-links">
+      <a href="driver_dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+      <a href="profile.php"><i class="fas fa-user"></i> My Profile</a>
+      <a href="../forms/bookings/driver_bookings.php"><i class="fas fa-calendar-check"></i> My Bookings</a>
+      <a href="rate_mechanic.php"><i class="fas fa-star"></i> Ratings</a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="../forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </div>
+  </aside>
 
-<div class="dashboard-container">
-<div id="map"></div>
-<div class="results" id="results"></div>
-</div>
-</div>
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="top-bar">
+      <div class="greeting">
+        <h1 id="driverGreeting"></h1>
+        <p>Choose a service, then see nearby mechanics with real driving ETAs.</p>
+      </div>
+      <button class="menu-toggle" id="menuToggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+        <i class="fas fa-bars"></i>
+      </button>
+    </div>
 
-<!-- Booking Modal -->
-<div id="bookingModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+    <div class="map-wrapper">
+      <!-- Uber‑style floating filter pill -->
+      <div class="search-card">
+        <form class="booking-form" onsubmit="return false;">
+          <label for="serviceType" class="sr-only">Service type</label>
+          <select id="serviceType" aria-label="Service type">
+            <option value="">All services</option>
+            <option value="engine">Engine</option>
+            <option value="tyres">Tyres</option>
+            <option value="battery">Battery</option>
+            <option value="brakes">Brakes</option>
+          </select>
+          <button type="button" onclick="searchMechanics()">
+            <i class="fas fa-sliders-h"></i> Filter
+          </button>
+        </form>
+      </div>
 
-<div style="background:white; padding:20px; border-radius:10px; width:300px; text-align:center;">
-
-<h3>Confirm Booking</h3>
-
-<p id="bookingText"></p>
-
-<div style="margin-top:15px;">
-
-<button id="confirmBookBtn"
-style="background:#3498db;color:white;padding:8px 15px;border:none;border-radius:6px;">
-Book
-</button>
-
-<button onclick="closeBookingModal()"
-style="background:#ccc;padding:8px 15px;border:none;border-radius:6px;">
-Cancel
-</button>
-
-</div>
-
-</div>
+      <div id="map" aria-label="Nearby mechanics map"></div>
+      <div class="results" id="results" aria-label="Nearby mechanics list"></div>
+    </div>
+  </main>
 </div>
 
 
@@ -168,7 +338,7 @@ function loadDriverGreeting(){
     var greeting = getGreeting();
     var el = document.getElementById("driverGreeting");
     if(el){
-        el.textContent = greeting + " " + driverName + " 👋";
+        el.textContent = greeting + ", " + driverName + " 👋";
     }
 }
 
@@ -201,14 +371,13 @@ function resizeMap() {
 window.addEventListener('resize', resizeMap);
 window.addEventListener('orientationchange', resizeMap);
 
-// ---------- Sidebar toggles ----------
-function toggleDesktop(){ document.getElementById("sidebar").classList.toggle("collapsed"); }
-function toggleMobile(){ document.getElementById("sidebar").classList.toggle("mobile-open"); }
-document.addEventListener("click", function(e){
-  var sidebar = document.getElementById("sidebar");
-  var hamburger = document.querySelector(".hamburger");
-  if (!sidebar.contains(e.target) && !hamburger.contains(e.target)) {
-    sidebar.classList.remove("mobile-open");
+// Close sidebar when clicking outside on mobile (match mechanic dashboard behavior)
+document.addEventListener('click', function(event) {
+  const sidebar = document.getElementById('sidebar');
+  const toggle = document.getElementById('menuToggle');
+  if (!sidebar || !toggle) return;
+  if (window.innerWidth <= 768 && sidebar.classList.contains('open') && !sidebar.contains(event.target) && !toggle.contains(event.target)) {
+    sidebar.classList.remove('open');
   }
 });
 
@@ -242,6 +411,28 @@ function formatETA(minutes){
     return mins === 0 ? hrs + " hr" : hrs + " hr " + mins + " min";
 }
 
+// ---------- speed model (derive walk/boda/matatu from driving distance) ----------
+// Speeds in km/h – tweak to fit your real-world expectations
+var WALK_SPEED = 4.5;    // average walking speed
+var BODA_SPEED = 25;     // motorcycle/boda
+var MATATU_SPEED = 20;   // public transport
+var CAR_DEFAULT_SPEED = 35; // used only as a fallback if OSRM duration missing
+
+function fillModeEtasFromDistance(mech){
+    if (typeof mech.roadDistance !== 'number' || isNaN(mech.roadDistance)) {
+        mech.etaFoot = mech.etaBoda = mech.etaMatatu = mech.roadDuration = null;
+        return;
+    }
+    var d = mech.roadDistance; // km
+    // if OSRM already provided a driving duration, keep it; otherwise derive one
+    if (typeof mech.roadDuration !== 'number' || isNaN(mech.roadDuration)) {
+        mech.roadDuration = (d / CAR_DEFAULT_SPEED) * 60;
+    }
+    mech.etaFoot   = (d / WALK_SPEED)   * 60;
+    mech.etaBoda   = (d / BODA_SPEED)   * 60;
+    mech.etaMatatu = (d / MATATU_SPEED) * 60;
+}
+
 // ---------- fetch best route (picks shortest-duration alternative) ----------
 function fetchBestRoute(profile, overview, lng1, lat1, lng2, lat2) {
     var url = `https://router.project-osrm.org/route/v1/${profile}/${lng1},${lat1};${lng2},${lat2}?overview=${overview}&geometries=geojson&alternatives=true&annotations=duration,distance`;
@@ -253,37 +444,6 @@ function fetchBestRoute(profile, overview, lng1, lat1, lng2, lat2) {
     }).catch(err => {
         console.warn("OSRM request failed for", profile, err);
         return null;
-    });
-}
-
-// ---------- get road info per mechanic and per mode ----------
-// mode = 'driving' | 'foot' | 'bike'
-function getRoadInfo(mech, mode) {
-    // important: call fetchBestRoute separately for each mode to guarantee distinct mode times
-    return fetchBestRoute(mode, 'false', driverLng, driverLat, mech.longitude, mech.latitude)
-    .then(best => {
-        if (!best) {
-            if (mode === 'driving') { mech.roadDistance = null; mech.roadDuration = null; mech._driving_best_summary = null; }
-            if (mode === 'foot') mech.etaFoot = null;
-            if (mode === 'bike') mech.etaBoda = null;
-            return mech;
-        }
-        if (mode === 'driving') {
-            mech.roadDistance = best.distance / 1000;           // km
-            mech.roadDuration = best.duration / 60;            // minutes
-            mech._driving_best_summary = { distance: best.distance, duration: best.duration }; // raw meters and seconds
-        } else if (mode === 'foot') {
-            mech.etaFoot = best.duration / 60;
-        } else if (mode === 'bike') {
-            mech.etaBoda = best.duration / 60;
-        }
-        return mech;
-    }).catch(err => {
-        console.warn("getRoadInfo error", err);
-        if (mode === 'driving') { mech.roadDistance = null; mech.roadDuration = null; mech._driving_best_summary = null; }
-        if (mode === 'foot') mech.etaFoot = null;
-        if (mode === 'bike') mech.etaBoda = null;
-        return mech;
     });
 }
 
@@ -357,19 +517,31 @@ function drawRoute(mech) {
     });
 }
 
-// ---------- render results, mark nearest ----------
-function renderResults(filterService = '', filterVehicle = '') {
+// ---------- render results, mark nearest + update map ----------
+function renderResults(filterService = '') {
     var container = document.getElementById('results');
     container.innerHTML = '';
 
     var filtered = mechanics.filter(m => {
         var svc = (m.services_offered || '').toLowerCase();
-        var veh = (m.vehicle_types || '').toLowerCase();
-        return (filterService === '' || svc.includes(filterService)) && (filterVehicle === '' || veh.includes(filterVehicle));
+        return (filterService === '' || svc.includes(filterService));
     });
 
     // sort by driving distance (nulls go last)
     filtered.sort((a,b) => (a.roadDistance == null ? 9999 : a.roadDistance) - (b.roadDistance == null ? 9999 : b.roadDistance));
+
+    // Update marker visibility / emphasis on the map based on filter
+    var filteredIds = new Set(filtered.map(m => String(m.id)));
+    mechanics.forEach(m => {
+        if (!m.marker) return;
+        if (filteredIds.size === 0 || filteredIds.has(String(m.id))) {
+            // fully visible when matches filter (or when no filter applied)
+            m.marker.setOpacity(1);
+        } else {
+            // de‑emphasise non‑matching mechanics
+            m.marker.setOpacity(0.2);
+        }
+    });
 
     if (filtered.length === 0) {
         container.innerHTML = "<div class='result-card'><div class='meta'>No mechanics found</div></div>";
@@ -393,9 +565,9 @@ function renderResults(filterService = '', filterVehicle = '') {
             <div class="small">Experience: ${m.experience || 0} yrs</div>
             <div class="small">Distance: ${distanceText}</div>
             <div class="small">ETA: ${etaText}</div>
-            <div class="result-actions" style="margin-top:6px">
-              <button onclick="focusMechanic(${m.id})">View</button>
-              <button onclick="bookMechanic(${m.id})">Book</button>
+            <div class="result-actions">
+              <button class="secondary" onclick="focusMechanic(${m.id})"><i class="fas fa-route"></i> View</button>
+              <button onclick="bookMechanic(${m.id})"><i class="fas fa-calendar-check"></i> Book</button>
             </div>
         `;
         container.appendChild(card);
@@ -406,6 +578,11 @@ function renderResults(filterService = '', filterVehicle = '') {
       var nearestEl = container.querySelector('.result-card.nearest');
       if (nearestEl) nearestEl.scrollIntoView({behavior:'smooth', block:'center'});
     }, 120);
+
+    // automatically focus the nearest mechanic from the filtered list on the map
+    if (nearestId != null) {
+        focusMechanic(nearestId);
+    }
 }
 
 // ---------- focus + booking ----------
@@ -418,46 +595,10 @@ function focusMechanic(id) {
     drawRoute(mech);
 }
 
-// booking mechanic 
+// booking mechanic (redirect to booking page to keep flow consistent)
 function bookMechanic(id){
     window.location.href = "/mechanics_tracer/forms/bookings/book_mechanic.php?mechanic_id=" + id;
 }
-
-function closeBookingModal(){
-    document.getElementById("bookingModal").style.display="none";
-}
-
-document.getElementById("confirmBookBtn").onclick = function(){
-
-    let service = document.getElementById("serviceType").value;
-    let vehicle = document.getElementById("vehicleType").value;
-
-    fetch("../forms/bookings/create_booking.php",{
-        method:"POST",
-        headers:{
-            "Content-Type":"application/json"
-        },
-        body:JSON.stringify({
-            mechanic_id:selectedMechanic,
-            service:service,
-            vehicle:vehicle,
-            lat:driverLat,
-            lng:driverLng
-        })
-    })
-    .then(res=>res.json())
-    .then(data=>{
-
-        if(data.success){
-            alert("Booking request sent successfully ✔");
-            closeBookingModal();
-        }
-        else{
-            alert("Booking failed");
-        }
-
-    });
-};
 
 // ---------- place markers and fetch mode routes intelligently ----------
 function loadMechanics() {
@@ -475,7 +616,8 @@ function loadMechanics() {
         m.marker = marker;
     });
 
-    // For each mechanic perform three profile requests in parallel, but batch mechanics to avoid overwhelming OSRM.
+    // For each mechanic perform one driving-profile request in parallel (we derive walk/boda/matatu from distance),
+    // but batch mechanics to avoid overwhelming OSRM.
     var concurrency = 5;
     var queue = mechanics.slice().filter(m => m.latitude && m.longitude);
 
@@ -483,16 +625,27 @@ function loadMechanics() {
         if (queue.length === 0) return Promise.resolve();
         var batch = queue.splice(0, concurrency);
         return Promise.all(batch.map(m => {
-            // query foot, bike, driving in parallel for each mechanic
-            return Promise.all([
-                getRoadInfo(m, 'foot'),
-                getRoadInfo(m, 'bike'),
-                getRoadInfo(m, 'driving')
-            ]).then(() => {
-                // compute matatu as 15% slower than driving if driving info exists
-                if (typeof m.roadDuration === 'number') m.etaMatatu = m.roadDuration * 1.15;
-                return m;
-            }).catch(()=>m);
+            return fetchBestRoute('driving','false', driverLng, driverLat, m.longitude, m.latitude)
+                .then(best => {
+                    if (best) {
+                        m.roadDistance = best.distance / 1000; // km
+                        m.roadDuration = best.duration / 60;   // minutes
+                        m._driving_best_summary = { distance: best.distance, duration: best.duration };
+                        fillModeEtasFromDistance(m);
+                    } else {
+                        m.roadDistance = null;
+                        m.roadDuration = null;
+                        m._driving_best_summary = null;
+                        fillModeEtasFromDistance(m);
+                    }
+                    return m;
+                }).catch(() => {
+                    m.roadDistance = null;
+                    m.roadDuration = null;
+                    m._driving_best_summary = null;
+                    fillModeEtasFromDistance(m);
+                    return m;
+                });
         })).then(() => worker());
     }
 
@@ -551,8 +704,7 @@ if (navigator.geolocation) {
 // ---------- search ----------
 function searchMechanics() {
     var service = document.getElementById("serviceType").value.toLowerCase();
-    var vehicle = document.getElementById("vehicleType").value.toLowerCase();
-    renderResults(service, vehicle);
+    renderResults(service);
 }
 
 // initial layout fix

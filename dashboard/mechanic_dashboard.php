@@ -1,4 +1,3 @@
-```php
 <?php
 session_start();
 require_once($_SERVER['DOCUMENT_ROOT'] . "/mechanics_tracer/forms/config.php");
@@ -186,7 +185,7 @@ else $greeting = "Good evening";
             display: none;
         }
         
-        /* Stats Cards */
+        /* Stats Cards (now clickable) */
         .stats-cards {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -201,9 +200,18 @@ else $greeting = "Good evening";
             display: flex;
             align-items: center;
             justify-content: space-between;
-            transition: 0.2s;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 2px solid transparent;
         }
-        .card:hover { box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        .card:hover {
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            transform: translateY(-2px);
+        }
+        .card.active {
+            border-color: #1890ff;
+            background: #f0f7ff;
+        }
         .card-left h3 {
             font-size: 1.9rem;
             font-weight: 700;
@@ -227,33 +235,9 @@ else $greeting = "Good evening";
             font-size: 1.5rem;
         }
         .card.pending .card-right { background: #fef3c7; color: #b45309; }
-        .card.active .card-right { background: #d1fae5; color: #065f46; }
+        .card.active-status .card-right { background: #d1fae5; color: #065f46; }
         .card.completed .card-right { background: #dbeafe; color: #1e40af; }
         .card.cancelled .card-right { background: #fee2e2; color: #b91c1c; }
-        
-        /* Tabs (no counts – pure navigation) */
-        .tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin: 30px 0 20px;
-            border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 8px;
-        }
-        .tab {
-            padding: 10px 20px;
-            background: #f1f5f9;
-            border-radius: 30px;
-            cursor: pointer;
-            transition: 0.2s;
-            font-weight: 500;
-            color: #334155;
-            font-size: 0.95rem;
-        }
-        .tab.active {
-            background: #1890ff;
-            color: white;
-        }
         
         /* Booking cards */
         .booking {
@@ -434,30 +418,30 @@ else $greeting = "Good evening";
             </button>
         </div>
 
-        <!-- Stats Cards (single source of truth for counts) -->
+        <!-- Clickable Stats Cards (now also navigation) -->
         <div class="stats-cards">
-            <div class="card pending">
+            <div class="card pending <?php echo ($pendingCount > 0 ? 'active' : ''); ?>" id="card-pending" onclick="showCardTab('pending')">
                 <div class="card-left">
                     <h3><?php echo $pendingCount; ?></h3>
                     <p>Pending</p>
                 </div>
                 <div class="card-right"><i class="fas fa-hourglass-half"></i></div>
             </div>
-            <div class="card active">
+            <div class="card active-status" id="card-active" onclick="showCardTab('active')">
                 <div class="card-left">
                     <h3><?php echo $activeCount; ?></h3>
                     <p>Active</p>
                 </div>
                 <div class="card-right"><i class="fas fa-bolt"></i></div>
             </div>
-            <div class="card completed">
+            <div class="card completed" id="card-completed" onclick="showCardTab('completed')">
                 <div class="card-left">
                     <h3><?php echo $completedCount; ?></h3>
                     <p>Completed</p>
                 </div>
                 <div class="card-right"><i class="fas fa-check-circle"></i></div>
             </div>
-            <div class="card cancelled">
+            <div class="card cancelled" id="card-cancelled" onclick="showCardTab('cancelled')">
                 <div class="card-left">
                     <h3><?php echo $cancelledCount; ?></h3>
                     <p>Cancelled</p>
@@ -466,18 +450,10 @@ else $greeting = "Good evening";
             </div>
         </div>
 
-        <!-- Tabs (no counts – pure navigation) -->
-        <div class="tabs">
-            <div class="tab active" id="tab_pending" onclick="showTab('pending')">Pending</div>
-            <div class="tab" id="tab_active" onclick="showTab('active')">Active</div>
-            <div class="tab" id="tab_completed" onclick="showTab('completed')">Completed</div>
-            <div class="tab" id="tab_cancelled" onclick="showTab('cancelled')">Cancelled</div>
-        </div>
-
         <!-- Notification popup -->
         <div id="popup">Message</div>
 
-        <!-- Booking sections -->
+        <!-- Booking sections (no separate tabs) -->
         <div id="pending" class="booking-section">
             <?php
             if(empty($pending)) echo "<p>No pending bookings.</p>";
@@ -528,14 +504,45 @@ else $greeting = "Good evening";
         }
     });
 
-    // Tab switching
-    function showTab(tabId) {
+    // ---------- Card-based navigation ----------
+    function showCardTab(status) {
+        // Hide all booking sections
         document.querySelectorAll('.booking-section').forEach(sec => sec.style.display = 'none');
-        document.getElementById(tabId).style.display = 'block';
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        const el = document.getElementById('tab_' + tabId);
-        if(el) el.classList.add('active');
+        // Show selected section
+        document.getElementById(status).style.display = 'block';
+        
+        // Remove active class from all cards
+        document.querySelectorAll('.card').forEach(card => card.classList.remove('active'));
+        // Add active class to the clicked card
+        document.getElementById('card-' + status).classList.add('active');
     }
+
+    // Initialize: if no card is active, activate the first one with content or default to pending
+    window.addEventListener('load', function() {
+        // Check if any card is already active (set by PHP if pending >0)
+        let activeCard = document.querySelector('.card.active');
+        if (!activeCard) {
+            // Default to pending card if exists, else first card
+            const pendingCard = document.getElementById('card-pending');
+            if (pendingCard) {
+                pendingCard.classList.add('active');
+                showCardTab('pending');
+            } else {
+                // Fallback to first card
+                const firstCard = document.querySelector('.card');
+                if (firstCard) {
+                    const firstStatus = firstCard.id.replace('card-', '');
+                    firstCard.classList.add('active');
+                    showCardTab(firstStatus);
+                }
+            }
+        } else {
+            // Ensure the correct section is shown based on the active card
+            const activeId = activeCard.id;
+            const status = activeId.replace('card-', '');
+            showCardTab(status);
+        }
+    });
 
     // ---------- Map with fix (reuse instance) ----------
     let map = null;
@@ -698,14 +705,15 @@ else $greeting = "Good evening";
         if(data.status === 'success') reloadBookings();
     }
 
-    // ---------- Reload bookings (updates cards and sections) ----------
+    // ---------- Reload bookings (updates cards and sections, preserves active card) ----------
     let reloadInProgress = false;
     function reloadBookings() {
         if(reloadInProgress) return;
         reloadInProgress = true;
 
-        const activeTabEl = document.querySelector('.tab.active');
-        const activeTabId = activeTabEl ? activeTabEl.id : 'tab_pending';
+        // Remember which card is active
+        const activeCard = document.querySelector('.card.active');
+        const activeStatus = activeCard ? activeCard.id.replace('card-', '') : 'pending';
 
         fetch(window.location.href, { cache: 'no-store' })
         .then(r => r.text())
@@ -720,25 +728,30 @@ else $greeting = "Good evening";
                 if(newSection && curSection) curSection.innerHTML = newSection.innerHTML;
             });
 
-            // Update card counts
+            // Update card counts and active state
             const pendingCount = (doc.querySelectorAll('#pending .booking') || []).length;
             const activeCount = (doc.querySelectorAll('#active .booking') || []).length;
             const completedCount = (doc.querySelectorAll('#completed .booking') || []).length;
             const cancelledCount = (doc.querySelectorAll('#cancelled .booking') || []).length;
 
-            document.querySelector('.card.pending .card-left h3').textContent = pendingCount;
-            document.querySelector('.card.active .card-left h3').textContent = activeCount;
-            document.querySelector('.card.completed .card-left h3').textContent = completedCount;
-            document.querySelector('.card.cancelled .card-left h3').textContent = cancelledCount;
+            document.querySelector('#card-pending .card-left h3').textContent = pendingCount;
+            document.querySelector('#card-active .card-left h3').textContent = activeCount;
+            document.querySelector('#card-completed .card-left h3').textContent = completedCount;
+            document.querySelector('#card-cancelled .card-left h3').textContent = cancelledCount;
 
-            // Restore active tab (tabs themselves unchanged)
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            const keep = document.getElementById(activeTabId);
-            if(keep) keep.classList.add('active');
-            const which = activeTabId.replace('tab_', '');
-            document.querySelectorAll('.booking-section').forEach(s => s.style.display = 'none');
-            const sec = document.getElementById(which);
-            if(sec) sec.style.display = 'block';
+            // Re-apply active class to the previously active card
+            document.querySelectorAll('.card').forEach(card => card.classList.remove('active'));
+            const cardToActivate = document.getElementById('card-' + activeStatus);
+            if (cardToActivate) {
+                cardToActivate.classList.add('active');
+                // Show the corresponding section
+                document.querySelectorAll('.booking-section').forEach(sec => sec.style.display = 'none');
+                document.getElementById(activeStatus).style.display = 'block';
+            } else {
+                // Fallback
+                document.getElementById('card-pending').classList.add('active');
+                document.getElementById('pending').style.display = 'block';
+            }
 
             reloadInProgress = false;
         })
@@ -795,4 +808,3 @@ function renderBooking($bookings, $mechanic_lat, $mechanic_lng) {
 
 </body>
 </html>
-```
