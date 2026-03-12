@@ -1,80 +1,4 @@
 <?php
-// session_start();
-// // include "../config.php"; 
-// require_once("../config.php");
-
-// // protect page
-// if (!isset($_SESSION['user_id'])) {
-//   // header("Location: new/forms/auth/login.php");
-//   exit();
-// }
-
-// if ($_SERVER["REQUEST_METHOD"] == "POST") {
-
-//   $user_id = $_SESSION['user_id'];
-
-//   $garage_name = $_POST['garage_name'] ?? '';
-//   $experience = $_POST['experience'] ?? '';
-//   $certifications = $_POST['certifications'] ?? '';
-
-//   $vehicle_types = isset($_POST['vehicle_types'])
-//     ? implode(",", $_POST['vehicle_types'])
-//     : '';
-
-//   $services_offered = isset($_POST['services_offered'])
-//     ? implode(",", $_POST['services_offered'])
-//     : '';
-
-//   $latitude = $_POST['latitude'] ?? '';
-//   $longitude = $_POST['longitude'] ?? '';
-
-//   $availability = "available";
-
-  // Before inserting
-  // $stmt = $conn->prepare("SELECT id FROM mechanics WHERE user_id = ?");
-  // $stmt->bind_param("i", $user_id);
-  // $stmt->execute();
-  // $result = $stmt->get_result();
-
-  // if ($result->num_rows > 0) {
-  //   $error = "You already have a mechanic profile.";
-  // } else {
-  //   // proceed with INSERT
-
-
-  //   $sql = "INSERT INTO mechanics
-  //   (user_id, garage_name, experience, certifications, vehicle_types, services_offered, latitude, longitude, availability)
-  //   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-  //   $stmt = $conn->prepare($sql);
-    // $stmt->bind_param(
-    //   "isissssss",
-    //   $user_id,
-    //   $garage_name,
-    //   $experience,
-    //   $certifications,
-    //   $vehicle_types,
-    //   $services_offered,
-    //   $latitude,
-    //   $longitude,
-    //   $availability
-    // );
-
-//     if ($stmt->execute()) {
-
-//       // update users table
-//       $update = $conn->prepare("UPDATE users SET  role='mechanic', profile_completed=1 WHERE id=?");
-//       $update->bind_param("i", $user_id);
-//       $update->execute();
-
-//       header("Location: " . DASHBOARD_URL . "mechanic_dashboard.php");
-//       exit();
-//     } else {
-//       $error = "Error saving profile: " . $stmt->error;
-//     }
-//   }
-// }
-
 session_start();
 require_once("../config.php");
 
@@ -86,6 +10,16 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 $error = "";
+
+// Fetch existing mechanic profile if it exists (for editing)
+$existing = null;
+$stmt = $conn->prepare("SELECT * FROM mechanics WHERE user_id = ? LIMIT 1");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$resExisting = $stmt->get_result();
+if ($resExisting && $resExisting->num_rows > 0) {
+    $existing = $resExisting->fetch_assoc();
+}
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
@@ -104,7 +38,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $latitude = trim($_POST['latitude'] ?? '');
     $longitude = trim($_POST['longitude'] ?? '');
 
-    $availability = "available";
+    // store availability as tinyint(1) to match DB schema
+    $availability = 1;
 
     // Validation
     if (empty($garage_name) || empty($experience) || empty($vehicle_types) || empty($services_offered)) {
@@ -131,8 +66,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     WHERE user_id=?";
 
             $stmt = $conn->prepare($sql);
+            // types: s (garage_name), i (experience), s (certifications), s (vehicle_types),
+            // s (services_offered), s (latitude), s (longitude), i (availability), i (user_id)
             $stmt->bind_param(
-                "sissssssi",
+                "sisssssii",
                 $garage_name,
                 $experience,
                 $certifications,
@@ -151,8 +88,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = $conn->prepare($sql);
+            // types: i (user_id), s (garage_name), i (experience), s (certifications),
+            // s (vehicle_types), s (services_offered), s (latitude), s (longitude), i (availability)
             $stmt->bind_param(
-                "isissssss",
+                "isisssssi",
                 $user_id,
                 $garage_name,
                 $experience,
@@ -185,6 +124,53 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 }
+
+// Load available services grouped by category from services table
+$serviceCategories = [];
+$svcRes = $conn->query("SELECT id, category, service_name FROM services ORDER BY category, service_name");
+if ($svcRes) {
+    while ($row = $svcRes->fetch_assoc()) {
+        $cat = $row['category'];
+        if (!isset($serviceCategories[$cat])) $serviceCategories[$cat] = [];
+        $serviceCategories[$cat][] = $row;
+    }
+}
+
+// Pre-fill values from POST or existing mechanic record
+function old_or_existing($key, $default = '') {
+    global $existing;
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        return htmlspecialchars(trim($_POST[$key] ?? ''), ENT_QUOTES);
+    }
+    if ($existing && isset($existing[$key])) {
+        return htmlspecialchars($existing[$key], ENT_QUOTES);
+    }
+    return htmlspecialchars($default, ENT_QUOTES);
+}
+
+$selected_vehicle_types = [];
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['vehicle_types'])) {
+    $selected_vehicle_types = (array)$_POST['vehicle_types'];
+} elseif ($existing && !empty($existing['vehicle_types'])) {
+    $selected_vehicle_types = array_map('trim', explode(',', $existing['vehicle_types']));
+}
+
+$selected_services = [];
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['services_offered'])) {
+    $selected_services = (array)$_POST['services_offered'];
+} elseif ($existing && !empty($existing['services_offered'])) {
+    $selected_services = array_map('trim', explode(',', $existing['services_offered']));
+}
+
+$lat_value = '';
+$lng_value = '';
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $lat_value = htmlspecialchars($_POST['latitude'] ?? '', ENT_QUOTES);
+    $lng_value = htmlspecialchars($_POST['longitude'] ?? '', ENT_QUOTES);
+} elseif ($existing) {
+    $lat_value = htmlspecialchars($existing['latitude'], ENT_QUOTES);
+    $lng_value = htmlspecialchars($existing['longitude'], ENT_QUOTES);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -195,192 +181,435 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   <title>Mechanic Profile</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: #f4f6f8;
+    body{
+      margin:0;
+      font-family:'Segoe UI',sans-serif;
+      background:#f4f6f8;
+      color:#111827;
     }
 
-    .profile-container {
-      max-width: 700px;
-      width: 95%;
-      margin: 30px auto;
-      padding: 25px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    .page-shell{
+      max-width:1120px;
+      margin:32px auto 40px;
+      padding:0 16px;
     }
 
-    .profile-container h1 {
-      text-align: center;
-      font-size: 1.8rem;
-      margin-bottom: 5px;
+    .page-header{
+      margin-bottom:18px;
+    }
+    .page-title{
+      font-size:1.8rem;
+      font-weight:650;
+      color:#020617;
+      margin-bottom:4px;
+    }
+    .page-subtitle{
+      font-size:0.96rem;
+      color:#6b7280;
     }
 
-    .profile-container .subtitle {
-      text-align: center;
-      font-size: 0.95rem;
-      color: #555;
-      margin-bottom: 20px;
+    .profile-layout{
+      display:grid;
+      grid-template-columns:minmax(0,1.1fr) minmax(0,1.4fr);
+      gap:18px;
+      align-items:flex-start;
     }
 
-    form .form-group {
-      display: flex;
-      flex-direction: column;
-      margin-bottom: 15px;
+    .card{
+      background:#ffffff;
+      border-radius:16px;
+      padding:18px 18px 16px;
+      box-shadow:0 10px 25px rgba(15,23,42,0.06);
+      border:1px solid #e5e7eb;
     }
 
-    form .form-group label {
-      font-weight: 600;
-      margin-bottom: 5px;
+    .card-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:10px;
+    }
+    .card-title{
+      font-size:1rem;
+      font-weight:600;
+      color:#020617;
+    }
+    .card-sub{
+      font-size:0.8rem;
+      color:#6b7280;
+      margin-bottom:8px;
     }
 
-    form .form-group input,
-    form .form-group select {
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid #dcdde1;
-      font-size: 1rem;
+    .form-group{
+      display:flex;
+      flex-direction:column;
+      margin-bottom:12px;
+    }
+    .form-group label{
+      font-size:0.9rem;
+      font-weight:600;
+      margin-bottom:4px;
+      color:#111827;
+    }
+    .form-group small{
+      font-size:0.78rem;
+      color:#9ca3af;
+      margin-top:2px;
+    }
+    .text-input{
+      padding:10px 11px;
+      border-radius:10px;
+      border:1px solid #d1d5db;
+      font-size:0.94rem;
+      outline:none;
+      background:#ffffff;
+    }
+    .text-input:focus{
+      border-color:#0f172a;
+      box-shadow:0 0 0 2px rgba(15,23,42,0.18);
     }
 
-    .checkbox-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 15px;
+    .pill-checkboxes{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .pill-label{
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:7px 12px;
+      border-radius:999px;
+      border:1px solid #d1d5db;
+      background:#f9fafb;
+      font-size:0.86rem;
+      cursor:pointer;
+      transition:all .15s ease;
+    }
+    .pill-label input{
+      position:absolute;
+      inset:0;
+      opacity:0;
+      cursor:pointer;
+    }
+    .pill-dot{
+      width:12px;height:12px;
+      border-radius:999px;
+      border:2px solid #9ca3af;
+      background:#f9fafb;
+    }
+    .pill-label span.txt{
+      color:#111827;
+    }
+    .pill-label:hover{
+      background:#e5e7eb;
+    }
+    .pill-label.active{
+      background:#0f172a;
+      border-color:#0f172a;
+    }
+    .pill-label.active .pill-dot{
+      border-color:#22c55e;
+      background:#22c55e;
+    }
+    .pill-label.active span.txt{
+      color:#f9fafb;
     }
 
-    .checkbox-group label {
-      font-size: 0.9rem;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      padding: 5px 10px;
-      background: #f1f3f6;
-      border-radius: 8px;
-      cursor: pointer;
+    .services-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+    .service-card{
+      border-radius:14px;
+      border:1px solid #e5e7eb;
+      padding:10px 11px 8px;
+      background:#ffffff;
+    }
+    .service-card-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:6px;
+    }
+    .service-card-title{
+      font-size:0.9rem;
+      font-weight:600;
+      color:#020617;
+    }
+    .info-icon{
+      width:18px;
+      height:18px;
+      border-radius:999px;
+      border:1px solid #d1d5db;
+      font-size:0.7rem;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      color:#6b7280;
+      position:relative;
+      cursor:default;
+    }
+    .info-icon:hover{
+      background:#f3f4f6;
+    }
+    .info-icon span.tooltip{
+      position:absolute;
+      bottom:120%;
+      right:0;
+      transform:translateY(4px);
+      background:#111827;
+      color:#f9fafb;
+      padding:6px 8px;
+      border-radius:6px;
+      font-size:0.75rem;
+      max-width:220px;
+      line-height:1.35;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .15s ease;
+      z-index:10;
+    }
+    .info-icon:hover span.tooltip{
+      opacity:1;
     }
 
-    #map {
-      width: 100%;
-      height: 250px;
-      border-radius: 12px;
-      margin-bottom: 10px;
-      border: 1px solid #dcdde1;
+    .service-list{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+    .service-chip{
+      position:relative;
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:5px 10px;
+      border-radius:999px;
+      border:1px solid #e5e7eb;
+      background:#f9fafb;
+      font-size:0.8rem;
+      cursor:pointer;
+      transition:all .15s;
+    }
+    .service-chip input{
+      position:absolute;
+      inset:0;
+      opacity:0;
+      cursor:pointer;
+    }
+    .service-chip:hover{
+      background:#e5e7eb;
+    }
+    .service-chip.active{
+      background:#111827;
+      border-color:#111827;
+      color:#f9fafb;
     }
 
-    .lat-lon {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 20px;
+    #map{
+      width:100%;
+      height:230px;
+      border-radius:12px;
+      margin-top:6px;
+      border:1px solid #e5e7eb;
+    }
+    .lat-lon{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+    .lat-lon input{
+      flex:1;
+      padding:8px 9px;
+      border-radius:9px;
+      border:1px solid #e5e7eb;
+      font-size:0.86rem;
+      background:#f9fafb;
     }
 
-    .lat-lon input {
-      flex: 1;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid #dcdde1;
-      font-size: 1rem;
-      background: #f9f9f9;
+    .error{
+      background:#fee2e2;
+      color:#b91c1c;
+      padding:9px 10px;
+      border-radius:10px;
+      font-size:0.9rem;
+      margin-bottom:12px;
+      text-align:center;
     }
 
-    .btn-primary {
-      width: 100%;
-      padding: clamp(12px, 2.5vw, 16px);
-      border: none;
-      border-radius: 10px;
-      background: #2c3e50;
-      color: #fff;
-      font-size: clamp(1rem, 3vw, 1.2rem);
-      cursor: pointer;
-      transition: 0.3s ease;
+    .form-actions{
+      display:flex;
+      justify-content:flex-end;
+      margin-top:16px;
+    }
+    .btn-primary{
+      padding:11px 22px;
+      border-radius:999px;
+      border:none;
+      background:#0f172a;
+      color:#f9fafb;
+      font-size:0.95rem;
+      font-weight:600;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      box-shadow:0 10px 18px rgba(15,23,42,0.25);
+    }
+    .btn-primary:hover{
+      filter:brightness(1.05);
     }
 
-    .btn-primary:hover {
-      background: #1a252f;
-    }
-
-    @media(max-width:600px) {
-      .lat-lon {
-        flex-direction: column;
+    @media (max-width: 900px){
+      .profile-layout{
+        grid-template-columns:1fr;
       }
-
-      .checkbox-group {
-        justify-content: flex-start;
+      .page-shell{
+        margin-top:22px;
       }
-    }
-
-    .error {
-      background: #ffe5e5;
-      color: #b00020;
-      padding: 10px;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      text-align: center;
+      .form-actions{
+        justify-content:center;
+      }
+      .btn-primary{
+        width:100%;
+        justify-content:center;
+      }
     }
   </style>
 </head>
 
 <body>
 
-  <div class="profile-container">
-    <h1>Mechanic Profile</h1>
-    <p class="subtitle">Complete your garage profile for accurate recommendations</p>
+  <div class="page-shell">
+    <header class="page-header">
+      <h1 class="page-title">Complete Your Garage Profile for Accurate Recommendations</h1>
+      <p class="page-subtitle">We use your garage details, vehicle types and services to match you with the right drivers.</p>
+    </header>
 
     <?php if (isset($error)): ?>
       <div class="error"><?php echo $error; ?></div>
     <?php endif; ?>
 
     <form method="POST">
+      <div class="profile-layout">
+        <!-- Left: garage info + vehicle types + location -->
+        <section class="card" aria-label="Garage information">
+          <div class="card-header">
+            <div class="card-title">Garage information</div>
+          </div>
+          <p class="card-sub">Tell drivers who you are and where your garage is located.</p>
 
+          <div class="form-group">
+            <label for="garage_name">Garage Name <span style="color:#b91c1c">*</span></label>
+            <input type="text" class="text-input" name="garage_name" id="garage_name" placeholder="e.g. Skyline Auto Garage" required
+                   value="<?php echo old_or_existing('garage_name'); ?>">
+          </div>
 
-      <!-- Garage Info -->
-      <div class="form-group">
-        <label for="garage_name">Garage Name <span style="color:red">*</span></label>
-        <input type="text" name="garage_name" id="garage_name" placeholder="Enter your garage name" required>
+          <div class="form-group">
+            <label for="experience">Years of Experience <span style="color:#b91c1c">*</span></label>
+            <input type="number" class="text-input" name="experience" id="experience" min="0" max="80"
+                   placeholder="How many years have you been a mechanic?" required
+                   value="<?php echo old_or_existing('experience'); ?>">
+          </div>
+
+          <div class="form-group">
+            <label for="certifications">Certifications / Skills <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
+            <input type="text" class="text-input" name="certifications" id="certifications"
+                   placeholder="e.g. Engine specialist, Brake expert, ECU diagnostics"
+                   value="<?php echo old_or_existing('certifications'); ?>">
+            <small>Add any formal training or special skills you want drivers to see.</small>
+          </div>
+
+          <div class="form-group">
+            <label>Vehicle Types You Service <span style="color:#b91c1c">*</span></label>
+            <div class="pill-checkboxes">
+              <?php
+              $vehicleOptions = ['Car','Truck','Motorbike','Van','Bus'];
+              foreach ($vehicleOptions as $v):
+                  $isChecked = in_array($v, $selected_vehicle_types);
+              ?>
+                <label class="pill-label <?php echo $isChecked ? 'active' : ''; ?>">
+                  <input type="checkbox" name="vehicle_types[]" value="<?php echo htmlspecialchars($v, ENT_QUOTES); ?>"
+                         <?php echo $isChecked ? 'checked' : ''; ?>
+                         onchange="this.parentElement.classList.toggle('active', this.checked)">
+                  <span class="pill-dot"></span>
+                  <span class="txt"><?php echo htmlspecialchars($v); ?></span>
+                </label>
+              <?php endforeach; ?>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Garage Location <span style="color:#b91c1c">*</span></label>
+            <small>We’ll use this to calculate distance and ETA for nearby drivers.</small>
+            <div id="map"></div>
+            <div class="lat-lon">
+              <input type="text" id="latitude" name="latitude" placeholder="Latitude" readonly required value="<?php echo $lat_value; ?>">
+              <input type="text" id="longitude" name="longitude" placeholder="Longitude" readonly required value="<?php echo $lng_value; ?>">
+            </div>
+          </div>
+        </section>
+
+        <!-- Right: services offered -->
+        <section class="card" aria-label="Services offered">
+          <div class="card-header">
+            <div class="card-title">Services you offer</div>
+          </div>
+          <p class="card-sub">Pick all services you can confidently provide. This powers search and bookings.</p>
+
+          <div class="services-grid">
+            <?php
+            // Simple descriptions for tooltips
+            $categoryHelp = [
+                'Engine Services' => 'Diagnostics, repairs and maintenance related to the engine and fuel system.',
+                'Electrical Services' => 'Battery, alternator, wiring, starters and electronic diagnostics.',
+                'Brake System' => 'Brake pads, discs, fluids and ABS related work.',
+                'Tire & Wheel' => 'Tire changes, puncture repair, alignment and balancing.',
+                'Transmission' => 'Clutch, gearbox and transmission related repairs.',
+                'Suspension & Steering' => 'Shocks, springs and steering stability issues.',
+                'General Maintenance' => 'Regular service items like oil, filters and spark plugs.',
+                'Emergency Roadside' => 'On-the-road help like jump starts, towing and flat tires.'
+            ];
+
+            foreach ($serviceCategories as $cat => $rows):
+              $tip = $categoryHelp[$cat] ?? 'Services related to this system of the vehicle.';
+            ?>
+              <div class="service-card">
+                <div class="service-card-header">
+                  <div class="service-card-title"><?php echo htmlspecialchars($cat); ?></div>
+                  <div class="info-icon">
+                    ?
+                    <span class="tooltip"><?php echo htmlspecialchars($tip); ?></span>
+                  </div>
+                </div>
+                <div class="service-list">
+                  <?php foreach ($rows as $svc):
+                      $name = $svc['service_name'];
+                      $isSel = in_array($name, $selected_services);
+                  ?>
+                    <label class="service-chip <?php echo $isSel ? 'active' : ''; ?>">
+                      <input type="checkbox" name="services_offered[]" value="<?php echo htmlspecialchars($name, ENT_QUOTES); ?>"
+                             <?php echo $isSel ? 'checked' : ''; ?>
+                             onchange="this.parentElement.classList.toggle('active', this.checked)">
+                      <?php echo htmlspecialchars($name); ?>
+                    </label>
+                  <?php endforeach; ?>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        </section>
       </div>
 
-      <div class="form-group">
-        <label for="experience">Years of Experience <span style="color:red">*</span></label>
-        <input type="number" name="experience" id="experience" placeholder="Enter years of experience" required>
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">
+          Save garage profile
+        </button>
       </div>
-
-      <div class="form-group">
-        <label for="certifications">Certifications / Skills (optional)</label>
-        <input type="text" name="certifications" id="certifications" placeholder="e.g. Engine Specialist, Brake Expert">
-      </div>
-
-      <!-- Vehicle Types -->
-      <label>Vehicle Types You Service <span style="color:red">*</span></label>
-      <div class="checkbox-group">
-        <label><input type="checkbox" name="vehicle_types[]" value="Car">Car</label>
-        <label><input type="checkbox" name="vehicle_types[]" value="Truck">Truck</label>
-        <label><input type="checkbox" name="vehicle_types[]" value="Motorbike">Motorbike</label>
-        <label><input type="checkbox" name="vehicle_types[]" value="Van">Van</label>
-        <label><input type="checkbox" name="vehicle_types[]" value="Bus">Bus</label>
-      </div>
-
-      <!-- Services Offered -->
-      <label>Services You Offer <span style="color:red">*</span></label>
-      <div class="checkbox-group">
-        <label><input type="checkbox" name="services_offered[]" value="Oil Change">Oil Change</label>
-        <label><input type="checkbox" name="services_offered[]" value="Engine Repair">Engine Repair</label>
-        <label><input type="checkbox" name="services_offered[]" value="Tire Replacement">Tire Replacement</label>
-        <label><input type="checkbox" name="services_offered[]" value="Brake Adjustment">Brake Adjustment</label>
-        <label><input type="checkbox" name="services_offered[]" value="Chain Lubrication">Chain Lubrication</label>
-        <label><input type="checkbox" name="services_offered[]" value="Battery Replacement">Battery Replacement</label>
-      </div>
-
-      <!-- GPS Map -->
-      <label>Garage Location <span style="color:red">*</span></label>
-      <div id="map"></div>
-      <div class="lat-lon">
-        <input type="text" id="latitude" name="latitude" placeholder="Latitude" readonly required>
-        <input type="text" id="longitude" name="longitude" placeholder="Longitude" readonly required>
-      </div>
-
-      <button type="submit" class="btn-primary">Save Profile</button>
     </form>
   </div>
 
@@ -388,26 +617,39 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   <script>
     // Initialize map
     window.addEventListener('load', function() {
-      var map = L.map('map').setView([-1.2921, 36.8219], 13);
+      var initialLat = <?php echo $lat_value !== '' ? floatval($lat_value) : -1.2921; ?>;
+      var initialLng = <?php echo $lng_value !== '' ? floatval($lng_value) : 36.8219; ?>;
+
+      var map = L.map('map').setView([initialLat, initialLng], 13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
       }).addTo(map);
 
-      // Locate user
-      map.locate({
-          setView: true,
-          maxZoom: 15
-        })
-        .on('locationfound', function(e) {
-          var lat = e.latlng.lat;
-          var lng = e.latlng.lng;
-          document.getElementById('latitude').value = lat;
-          document.getElementById('longitude').value = lng;
-          L.marker([lat, lng]).addTo(map).bindPopup("Garage Location").openPopup();
-        })
-        .on('locationerror', function() {
-          alert("GPS access denied. Please enable location to complete profile.");
-        });
+      var marker = null;
+
+      // If existing coords, show marker
+      if (!isNaN(initialLat) && !isNaN(initialLng) && "<?php echo $lat_value; ?>" !== "" && "<?php echo $lng_value; ?>" !== "") {
+        marker = L.marker([initialLat, initialLng]).addTo(map).bindPopup("Garage Location").openPopup();
+      }
+
+      // Try to locate user only when there is no saved location yet
+      if ("<?php echo $lat_value; ?>" === "" || "<?php echo $lng_value; ?>" === "") {
+        map.locate({
+            setView: true,
+            maxZoom: 15
+          })
+          .on('locationfound', function(e) {
+            var lat = e.latlng.lat;
+            var lng = e.latlng.lng;
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lng;
+            if (marker) map.removeLayer(marker);
+            marker = L.marker([lat, lng]).addTo(map).bindPopup("Garage Location").openPopup();
+          })
+          .on('locationerror', function() {
+            // silently ignore; user can still click and set location manually later if implemented
+          });
+      }
     });
   </script>
 </body>
