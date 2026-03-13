@@ -36,13 +36,23 @@ $stmt->execute();
 $result = $stmt->get_result();
 $bookings = $result->fetch_all(MYSQLI_ASSOC);
 
-// Separate into active and past
+// Separate into active and past; mark which completed are unrated
 $active = [];
 $past = [];
+$rated_ids = [];
+if (($r = $conn->query("SHOW TABLES LIKE 'ratings'")) && $r->num_rows) {
+    $rq = $conn->prepare("SELECT booking_id FROM ratings WHERE driver_id = ?");
+    $rq->bind_param("i", $driver_id);
+    $rq->execute();
+    foreach ($rq->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+        $rated_ids[(int)$row['booking_id']] = true;
+    }
+}
 foreach($bookings as $b){
     if(in_array($b['booking_status'], ['pending','accepted'])){
         $active[] = $b;
     } else {
+        $b['can_rate'] = ($b['booking_status'] === 'completed' && !isset($rated_ids[(int)$b['id']]));
         $past[] = $b;
     }
 }
@@ -151,7 +161,10 @@ button:hover, .chat-icon:hover { opacity:0.85; }
                     <p class="status <?php echo htmlspecialchars($b['booking_status']); ?>"><?php echo ucfirst($b['booking_status']); ?></p>
                 </div>
                 <div class="actions">
-                    <button class="chat-icon" onclick="openChatModal(<?php echo $b['mechanic_id']; ?>,'<?php echo htmlspecialchars($b['garage_name']); ?>')">💬 Chat</button>
+                    <?php if (!empty($b['can_rate'])): ?>
+                        <a href="/mechanics_tracer/dashboard/rate_mechanic.php" class="chat-icon" style="text-decoration:none;">⭐ Rate</a>
+                    <?php endif; ?>
+                    <button class="chat-icon" onclick="openChatModal(<?php echo $b['mechanic_id']; ?>,'<?php echo addslashes(htmlspecialchars($b['garage_name'])); ?>')">💬 Chat</button>
                 </div>
             </div>
         <?php endforeach; ?>

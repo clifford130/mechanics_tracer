@@ -10,28 +10,71 @@ if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'driver'){
 $user_id = $_SESSION['user_id'];
 $user_name = "Driver";
 
-// Fetch driver name from users table
 $stmt = $conn->prepare("SELECT full_name FROM users WHERE id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
-
 if($row = $result->fetch_assoc()){
-    // Only take the first name
     $user_name = explode(" ", $row['full_name'])[0];
 }
 
-// Fetch mechanics from DB
+// ----- Filtering logic (unchanged) -----
+$selected_services = isset($_GET['services']) ? (array)$_GET['services'] : [];
 $mechanics = [];
-$sql = "SELECT id, garage_name, vehicle_types, services_offered, latitude, longitude, experience
-        FROM mechanics";
-$res = $conn->query($sql);
-if($res){
-    while($row = $res->fetch_assoc()){
+$show_all_when_no_filter = true;
+
+if (!empty($selected_services)) {
+    $selected_ids = array_filter(array_map('intval', $selected_services), function($id) { return $id > 0; });
+
+    if (!empty($selected_ids)) {
+        $conditions = [];
+        $params = [];
+        $types = '';
+        foreach ($selected_ids as $sid) {
+            $conditions[] = "JSON_CONTAINS(service_ids, ?)";
+            $params[] = json_encode($sid);
+            $types .= 's';
+        }
+        $where = implode(' OR ', $conditions);
+
+        $sql = "SELECT id, garage_name, vehicle_types, services_offered, 
+                       latitude, longitude, experience, service_ids
+                FROM mechanics
+                WHERE $where";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        while ($row = $result->fetch_assoc()) {
+            $row['latitude'] = floatval($row['latitude']);
+            $row['longitude'] = floatval($row['longitude']);
+            $mechanic_services = json_decode($row['service_ids'] ?? '[]', true) ?: [];
+            $row['match_count'] = count(array_intersect($selected_ids, $mechanic_services));
+            $mechanics[] = $row;
+        }
+
+        usort($mechanics, function($a, $b) {
+            if ($a['match_count'] == $b['match_count']) return 0;
+            return ($a['match_count'] > $b['match_count']) ? -1 : 1;
+        });
+    }
+} elseif ($show_all_when_no_filter) {
+    $sql = "SELECT id, garage_name, vehicle_types, services_offered, 
+                   latitude, longitude, experience, service_ids
+            FROM mechanics";
+    $result = $conn->query($sql);
+    while ($row = $result->fetch_assoc()) {
         $row['latitude'] = floatval($row['latitude']);
         $row['longitude'] = floatval($row['longitude']);
         $mechanics[] = $row;
     }
+}
+
+$servicesByCat = [];
+$catRes = $conn->query("SELECT category, id, service_name FROM services ORDER BY category, service_name");
+while ($row = $catRes->fetch_assoc()) {
+    $servicesByCat[$row['category']][] = $row;
 }
 ?>
 <!DOCTYPE html>
@@ -43,25 +86,13 @@ if($res){
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 <style>
+/* ===== RESET & GLOBAL ===== */
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
 body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden;}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;}
 
-/* Accessibility helpers */
-.sr-only{
-    position:absolute;
-    width:1px;
-    height:1px;
-    padding:0;
-    margin:-1px;
-    overflow:hidden;
-    clip:rect(0,0,0,0);
-    border:0;
-}
-
-/* Layout (match mechanic dashboard) */
+/* ===== SIDEBAR (unchanged) ===== */
 .app-wrapper{display:flex;flex:1;}
-
-/* Sidebar (match mechanic dashboard) */
 .sidebar{
     width:260px;
     background:#1e293b;
@@ -94,7 +125,7 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
 .sidebar-footer a{display:flex;align-items:center;gap:12px;color:#f87171;text-decoration:none;font-weight:500;}
 .sidebar-footer a i{width:24px;}
 
-/* Main content */
+/* ===== MAIN CONTENT ===== */
 .main-content{
     flex:1;
     padding:24px 32px;
@@ -104,57 +135,136 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
     width:100%;
 }
 
-/* Top bar */
-.top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:15px;}
-.greeting h1{font-size:1.8rem;color:#0f172a;font-weight:600;}
-.greeting p{color:#475569;margin-top:4px;font-size:1rem;}
-.menu-toggle{
-    background:none;border:none;font-size:1.8rem;color:#1e293b;cursor:pointer;display:none;
-}
-
-/* Search pill (Uber‑style over map) */
-.search-card{
-    position:absolute;
-    top:16px;
-    left:50%;
-    transform:translateX(-50%);
-    z-index:500;
-    background:white;
-    border-radius:999px;
-    padding:6px 10px;
-    box-shadow:0 8px 24px rgba(15,23,42,0.25);
-    border:1px solid rgba(148,163,184,0.5);
-}
-.booking-form{
+/* ----- Top bar: greeting left, filter button right ----- */
+.top-bar{
     display:flex;
     align-items:center;
-    gap:8px;
+    justify-content:space-between;
+    margin-bottom:16px;
+    flex-wrap:wrap;
+    gap:10px;
 }
-.booking-form select{
-    padding:8px 12px;
-    border-radius:999px;
-    border:1px solid transparent;
-    font-size:0.95rem;
-    outline:none;
-    background:#f1f5f9;
-}
-.booking-form select:focus{border-color:#1890ff;box-shadow:0 0 0 2px rgba(24,144,255,0.35);background:#ffffff;}
-.booking-form button{
-    padding:9px 14px;
-    border-radius:999px;
-    background:#111827;
-    color:#f9fafb;
-    border:none;
-    cursor:pointer;
+.greeting h1{
+    font-size:1.8rem;
+    color:#0f172a;
     font-weight:600;
-    font-size:0.9rem;
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
+    line-height:1.2;
 }
-.booking-form button:hover{filter:brightness(0.97);}
+.greeting p{
+    color:#475569;
+    margin-top:2px;
+    font-size:0.95rem;
+}
+.menu-toggle{
+    background:none;
+    border:none;
+    font-size:1.8rem;
+    color:#1e293b;
+    cursor:pointer;
+    display:none;
+}
 
-/* Map + bottom sheet results (Uber‑like) */
+/* Filter button */
+.filter-btn {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 10px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #0f172a;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.filter-btn i {
+    color: #1890ff;
+}
+.filter-btn:hover {
+    background: #f8fafc;
+}
+
+/* Filter modal (unchanged) */
+.filter-modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+}
+.filter-modal.active {
+    display: flex;
+}
+.filter-modal-content {
+    background: white;
+    border-radius: 24px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 24px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+}
+.filter-modal-content h3 {
+    margin-bottom: 20px;
+    font-size: 1.4rem;
+}
+.filter-categories {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px,1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+.filter-category {
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+}
+.filter-category strong {
+    display: block;
+    margin-bottom: 8px;
+    color: #0f172a;
+}
+.filter-category label {
+    display: block;
+    font-size: 0.9rem;
+    margin: 5px 0;
+}
+.filter-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+.filter-actions button, .filter-actions a {
+    padding: 10px 20px;
+    border-radius: 999px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+}
+.filter-actions .apply {
+    background: #0f172a;
+    color: white;
+}
+.filter-actions .clear {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+.filter-actions .cancel {
+    background: transparent;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+}
+
+/* ===== MAP (full height, no results panel) ===== */
 .map-wrapper{
     position:relative;
     border-radius:24px;
@@ -164,69 +274,35 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
     background:#020617;
 }
 #map{
-    height:calc(100vh - 180px);
-    min-height:420px;
+    height:calc(100vh - 140px); /* more space because no results panel */
+    min-height:500px;
     width:100%;
+    z-index:1;
 }
-.results{
-    position:absolute;
-    left:0;
-    right:0;
-    bottom:0;
-    max-height:45vh;
-    background:rgba(248,250,252,0.98);
-    backdrop-filter:blur(10px);
-    border-radius:18px 18px 0 0;
-    padding:12px 14px 10px;
-    overflow-y:auto;
-    display:flex;
-    flex-direction:column;
-    gap:10px;
-}
-.results::before{
-    content:"";
-    width:42px;
-    height:4px;
-    border-radius:999px;
-    background:#cbd5f5;
-    opacity:0.8;
-    position:sticky;
-    top:-4px;
-    margin:0 auto 6px;
-    display:block;
-}
-.result-card{
-    background:white;
-    padding:16px 16px;
-    border-radius:16px;
-    border:1px solid #e9edf2;
-    box-shadow:0 2px 8px rgba(0,0,0,0.02);
-}
-.result-card.nearest{border-color:#1890ff;background:#f0f7ff;}
-.meta{color:#0f172a;font-weight:700;margin-bottom:6px;}
-.small{color:#475569;font-size:0.95rem;margin-top:4px;}
-.result-actions{display:flex;gap:10px;margin-top:10px;}
-.result-actions button{
-    flex:1;
-    padding:10px 12px;
-    background:#1890ff;
-    color:white;
-    border:none;
-    border-radius:999px;
-    cursor:pointer;
-    font-weight:600;
-    font-size:0.9rem;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    gap:8px;
-}
-.result-actions button.secondary{background:#0f172a;}
-.result-actions button:hover{filter:brightness(0.95);transform:translateY(-1px);}
 
-/* Responsive (match mechanic behavior) */
+/* Simple instruction overlay (optional) */
+.map-instruction {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: white;
+    padding: 8px 16px;
+    border-radius: 999px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-size: 0.9rem;
+    color: #0f172a;
+    z-index: 10;
+    pointer-events: none;
+    border: 1px solid #e2e8f0;
+}
+.map-instruction i {
+    color: #1890ff;
+    margin-right: 6px;
+}
+
+/* ===== RESPONSIVE ===== */
 @media (max-width: 1024px){
-    #map{height:calc(100vh - 160px);}
+    #map{height:calc(100vh - 120px);}
 }
 @media (max-width: 768px){
     .app-wrapper{flex-direction:column;}
@@ -241,25 +317,15 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
     .sidebar.open{transform:translateX(0);}
     .menu-toggle{display:block;}
     .main-content{padding:16px;}
-    .search-card{
-        top:14px;
-        left:50%;
-        transform:translateX(-50%);
-        width:auto;
-        max-width:92%;
-    }
-    .booking-form{flex-wrap:nowrap;}
-    .booking-form select{max-width:170px;}
-    .results{
-        max-height:55vh;
-        padding:10px 10px 8px;
-    }
+    .top-bar{margin-bottom:12px;}
+    .greeting h1{font-size:1.5rem;}
+    #map{height:calc(100vh - 100px);}
+    .map-instruction{top:10px; left:10px; font-size:0.8rem;}
 }
 </style>
 </head>
 <body>
 <div class="app-wrapper">
-  <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <h2><i class="fas fa-car" style="margin-right: 8px;"></i><?php echo htmlspecialchars($user_name); ?></h2>
@@ -276,443 +342,294 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
     </div>
   </aside>
 
-  <!-- Main Content -->
   <main class="main-content">
+    <!-- Top bar: greeting left, filter button right -->
     <div class="top-bar">
       <div class="greeting">
         <h1 id="driverGreeting"></h1>
-        <p>Choose a service, then see nearby mechanics with real driving ETAs.</p>
+        <p>Click a marker to see details and book.</p>
+      </div>
+      <div>
+        <button class="filter-btn" id="filterBtn"><i class="fas fa-sliders-h"></i> Filter by services</button>
       </div>
       <button class="menu-toggle" id="menuToggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
         <i class="fas fa-bars"></i>
       </button>
     </div>
 
-    <div class="map-wrapper">
-      <!-- Uber‑style floating filter pill -->
-      <div class="search-card">
-        <form class="booking-form" onsubmit="return false;">
-          <label for="serviceType" class="sr-only">Service type</label>
-          <select id="serviceType" aria-label="Service type">
-            <option value="">All services</option>
-            <option value="engine">Engine</option>
-            <option value="tyres">Tyres</option>
-            <option value="battery">Battery</option>
-            <option value="brakes">Brakes</option>
-          </select>
-          <button type="button" onclick="searchMechanics()">
-            <i class="fas fa-sliders-h"></i> Filter
-          </button>
+    <!-- Filter modal -->
+    <div class="filter-modal" id="filterModal">
+      <div class="filter-modal-content">
+        <h3>Select required services</h3>
+        <form method="GET" action="driver_dashboard.php" id="filterForm">
+          <div class="filter-categories">
+            <?php foreach ($servicesByCat as $cat => $services): ?>
+              <div class="filter-category">
+                <strong><?php echo htmlspecialchars($cat); ?></strong>
+                <?php foreach ($services as $svc): ?>
+                  <label>
+                    <input type="checkbox" name="services[]" value="<?php echo $svc['id']; ?>"
+                      <?php echo in_array($svc['id'], $selected_services) ? 'checked' : ''; ?>>
+                    <?php echo htmlspecialchars($svc['service_name']); ?>
+                  </label>
+                <?php endforeach; ?>
+              </div>
+            <?php endforeach; ?>
+          </div>
+          <div class="filter-actions">
+            <button type="submit" class="apply">Apply Filter</button>
+            <a href="driver_dashboard.php" class="clear">Clear</a>
+            <button type="button" class="cancel" onclick="closeFilterModal()">Cancel</button>
+          </div>
         </form>
       </div>
+    </div>
 
+    <!-- Map with instruction overlay -->
+    <div class="map-wrapper">
+      <div class="map-instruction"><i class="fas fa-hand-pointer"></i> Click a marker to view & book</div>
       <div id="map" aria-label="Nearby mechanics map"></div>
-      <div class="results" id="results" aria-label="Nearby mechanics list"></div>
     </div>
   </main>
 </div>
 
-
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-
-    // ---------- smart greeting ----------
-var driverName = "<?php echo htmlspecialchars($user_name); ?>";
-
-function getGreeting(){
-    var hour = new Date().getHours();
-
-    if(hour < 12){
-        return "Good morning";
+    // ----- GREETING -----
+    var driverName = "<?php echo htmlspecialchars($user_name); ?>";
+    function getGreeting(){
+        var hour = new Date().getHours();
+        if(hour < 12) return "Good morning";
+        else if(hour < 17) return "Good afternoon";
+        else return "Good evening";
     }
-    else if(hour < 17){
-        return "Good afternoon";
+    function loadDriverGreeting(){
+        var greeting = getGreeting();
+        var el = document.getElementById("driverGreeting");
+        if(el) el.textContent = greeting + ", " + driverName + " 👋";
     }
-    else{
-        return "Good evening";
-    }
-}
+    loadDriverGreeting();
 
-function loadDriverGreeting(){
-    var greeting = getGreeting();
-    var el = document.getElementById("driverGreeting");
-    if(el){
-        el.textContent = greeting + ", " + driverName + " 👋";
-    }
-}
-
-// run when page loads
-loadDriverGreeting();
-
-    // ---------- helper UI: resize map so it never disappears ----------
-function resizeMap() {
-  var header = document.querySelector('.header');
-  var booking = document.querySelector('.booking-form');
-  var mapEl = document.getElementById('map');
-  var resultsEl = document.getElementById('results');
-
-  var used = 0;
-  if (header) used += header.getBoundingClientRect().height;
-  if (booking) used += booking.getBoundingClientRect().height;
-  // small padding
-  used += 36;
-
-  var h = window.innerHeight - used;
-  if (h < 280) h = 280;
-  mapEl.style.height = h + 'px';
-  // make results max-height match map
-  if (resultsEl) resultsEl.style.maxHeight = h + 'px';
-
-  if (window._mapInstance) {
-    window._mapInstance.invalidateSize();
-  }
-}
-window.addEventListener('resize', resizeMap);
-window.addEventListener('orientationchange', resizeMap);
-
-// Close sidebar when clicking outside on mobile (match mechanic dashboard behavior)
-document.addEventListener('click', function(event) {
-  const sidebar = document.getElementById('sidebar');
-  const toggle = document.getElementById('menuToggle');
-  if (!sidebar || !toggle) return;
-  if (window.innerWidth <= 768 && sidebar.classList.contains('open') && !sidebar.contains(event.target) && !toggle.contains(event.target)) {
-    sidebar.classList.remove('open');
-  }
-});
-
-// ---------- data from PHP ----------
-var mechanics = <?php echo json_encode($mechanics); ?> || [];
-
-// ---------- defaults ----------
-var driverLat = -1.286389;
-var driverLng = 36.817223;
-
-// ---------- icons ----------
-var driverIcon = L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/684/684908.png',iconSize:[32,32],iconAnchor:[16,32]});
-var mechanicIcon = L.icon({iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',iconSize:[25,41],iconAnchor:[12,41],popupAnchor:[1,-34]});
-
-// ---------- map init ----------
-var map = L.map('map', {preferCanvas:true}).setView([driverLat,driverLng],13);
-window._mapInstance = map; // for resizeMap
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-
-// ---------- state ----------
-var driverMarker = null;
-var routeLine = null;
-
-// ---------- ETA formatting ----------
-function formatETA(minutes){
-    if (minutes === null || minutes === undefined || isNaN(minutes)) return '—';
-    minutes = Math.round(Number(minutes) || 0);
-    if (minutes < 60) return minutes + " min";
-    var hrs = Math.floor(minutes / 60);
-    var mins = minutes % 60;
-    return mins === 0 ? hrs + " hr" : hrs + " hr " + mins + " min";
-}
-
-// ---------- speed model (derive walk/boda/matatu from driving distance) ----------
-// Speeds in km/h – tweak to fit your real-world expectations
-var WALK_SPEED = 4.5;    // average walking speed
-var BODA_SPEED = 25;     // motorcycle/boda
-var MATATU_SPEED = 20;   // public transport
-var CAR_DEFAULT_SPEED = 35; // used only as a fallback if OSRM duration missing
-
-function fillModeEtasFromDistance(mech){
-    if (typeof mech.roadDistance !== 'number' || isNaN(mech.roadDistance)) {
-        mech.etaFoot = mech.etaBoda = mech.etaMatatu = mech.roadDuration = null;
-        return;
-    }
-    var d = mech.roadDistance; // km
-    // if OSRM already provided a driving duration, keep it; otherwise derive one
-    if (typeof mech.roadDuration !== 'number' || isNaN(mech.roadDuration)) {
-        mech.roadDuration = (d / CAR_DEFAULT_SPEED) * 60;
-    }
-    mech.etaFoot   = (d / WALK_SPEED)   * 60;
-    mech.etaBoda   = (d / BODA_SPEED)   * 60;
-    mech.etaMatatu = (d / MATATU_SPEED) * 60;
-}
-
-// ---------- fetch best route (picks shortest-duration alternative) ----------
-function fetchBestRoute(profile, overview, lng1, lat1, lng2, lat2) {
-    var url = `https://router.project-osrm.org/route/v1/${profile}/${lng1},${lat1};${lng2},${lat2}?overview=${overview}&geometries=geojson&alternatives=true&annotations=duration,distance`;
-    return fetch(url).then(res => res.json()).then(data => {
-        if (!data || !data.routes || data.routes.length === 0) return null;
-        // choose shortest-duration route (best for ETA). If you prefer shortest-distance, adjust here.
-        var best = data.routes.reduce((min, r) => (r.duration < min.duration ? r : min), data.routes[0]);
-        return best;
-    }).catch(err => {
-        console.warn("OSRM request failed for", profile, err);
-        return null;
+    // ----- FILTER MODAL -----
+    const filterBtn = document.getElementById('filterBtn');
+    const filterModal = document.getElementById('filterModal');
+    function openFilterModal() { filterModal.classList.add('active'); }
+    function closeFilterModal() { filterModal.classList.remove('active'); }
+    filterBtn.addEventListener('click', openFilterModal);
+    filterModal.addEventListener('click', function(e) {
+        if (e.target === filterModal) closeFilterModal();
     });
-}
 
-// ---------- draw shortest driving route with full geometry ----------
-// picks shortest-duration alternative (fetchBestRoute already chooses it)
-function drawRoute(mech) {
-    if (!mech) return;
-    // clear previous
-    if (routeLine) { try { map.removeLayer(routeLine); } catch (e) {} routeLine = null; }
+    // ----- MAP RESIZE -----
+    function resizeMap() {
+        var mapEl = document.getElementById('map');
+        // Calculate height based on window minus top bar (approx 80px)
+        var used = 80;
+        var h = window.innerHeight - used;
+        if (h < 500) h = 500;
+        mapEl.style.height = h + 'px';
+        if (window._mapInstance) window._mapInstance.invalidateSize();
+    }
+    window.addEventListener('resize', resizeMap);
+    window.addEventListener('orientationchange', resizeMap);
 
-    // If we already prefetched a full geometry earlier, use it.
-    if (mech._driving_geometry && mech._driving_geometry.coordinates && mech._driving_geometry.coordinates.length) {
-        var coords = mech._driving_geometry.coordinates.map(c => [c[1], c[0]]);
-        routeLine = L.polyline(coords, { color:'#3498db', weight:5, opacity:0.95, lineJoin:'round' }).addTo(map);
+    document.addEventListener('click', function(event) {
+        const sidebar = document.getElementById('sidebar');
+        const toggle = document.getElementById('menuToggle');
+        if (!sidebar || !toggle) return;
+        if (window.innerWidth <= 768 && sidebar.classList.contains('open') && !sidebar.contains(event.target) && !toggle.contains(event.target)) {
+            sidebar.classList.remove('open');
+        }
+    });
 
-        var carMinutes = mech._driving_best_summary ? mech._driving_best_summary.duration / 60 : mech.roadDuration;
-        var etaText = `Walk: ${formatETA(mech.etaFoot)} | Boda: ${formatETA(mech.etaBoda)} | Matatu: ${formatETA(mech.etaMatatu)} | Car: ${formatETA(carMinutes)}`;
-        var distKm = mech._driving_best_summary ? (mech._driving_best_summary.distance / 1000).toFixed(2) : (mech.roadDistance ? mech.roadDistance.toFixed(2) : '—');
+    // ----- MECHANICS DATA -----
+    var mechanics = <?php echo json_encode($mechanics); ?> || [];
+    console.log('Mechanics loaded:', mechanics.length);
 
-        mech.marker.bindPopup(
-            `<b>${mech.garage_name}</b><br>
-             Services: ${mech.services_offered || ''}<br>
-             Distance: ${distKm} km<br>
-             ETA: ${etaText}<br>
-             <div style="margin-top:8px"><button onclick="bookMechanic(${mech.id})">Book</button></div>`
-        ).openPopup();
+    // ----- MAP INIT -----
+    var driverLat = -1.286389;
+    var driverLng = 36.817223;
+    var driverIcon = L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/684/684908.png',iconSize:[32,32],iconAnchor:[16,32]});
+    var mechanicIcon = L.icon({iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',iconSize:[25,41],iconAnchor:[12,41],popupAnchor:[1,-34]});
 
-        try { map.fitBounds(routeLine.getBounds(), { padding:[60,60] }); } catch(e) { console.warn(e); }
-        return;
+    var map = L.map('map', {preferCanvas:true}).setView([driverLat,driverLng],13);
+    window._mapInstance = map;
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+    var driverMarker = null;
+    var routeLine = null;
+    var mechanicsLoaded = false;
+
+    // ----- FIT MAP ONCE -----
+    function fitMapOnce() {
+        if (!mechanicsLoaded) return;
+        setTimeout(function() {
+            var markers = [];
+            if (driverMarker) markers.push(driverMarker);
+            mechanics.forEach(m => { if (m.marker) markers.push(m.marker); });
+            if (markers.length > 0) {
+                var group = L.featureGroup(markers);
+                var padding = window.innerWidth < 768 ? [70, 70] : [50, 50];
+                map.fitBounds(group.getBounds(), { padding: padding, maxZoom: 15 });
+            } else {
+                map.setView([driverLat, driverLng], 13);
+            }
+        }, 400);
     }
 
-    // otherwise fetch full driving geometry (alternatives=true) and pick shortest-duration route
-    return fetchBestRoute('driving', 'full', driverLng, driverLat, mech.longitude, mech.latitude)
-    .then(best => {
-        if (!best) {
-            // fallback: show popup with mode ETAs already computed
-            var etaTextFallback = `Walk: ${formatETA(mech.etaFoot)} | Boda: ${formatETA(mech.etaBoda)} | Matatu: ${formatETA(mech.etaMatatu)} | Car: ${formatETA(mech.roadDuration)}`;
-            mech.marker.bindPopup(`<b>${mech.garage_name}</b><br>Services: ${mech.services_offered || ''}<br>Distance: —<br>ETA: ${etaTextFallback}<br><div style="margin-top:8px"><button onclick="bookMechanic(${mech.id})">Book</button></div>`).openPopup();
+    // ----- ETA & ROUTING -----
+    function formatETA(minutes){
+        if (minutes === null || minutes === undefined || isNaN(minutes)) return '—';
+        minutes = Math.round(Number(minutes) || 0);
+        if (minutes < 60) return minutes + " min";
+        var hrs = Math.floor(minutes / 60);
+        var mins = minutes % 60;
+        return mins === 0 ? hrs + " hr" : hrs + " hr " + mins + " min";
+    }
+
+    var WALK_SPEED = 4.5, BODA_SPEED = 25, MATATU_SPEED = 20, CAR_DEFAULT_SPEED = 35;
+    function fillModeEtasFromDistance(mech){
+        if (typeof mech.roadDistance !== 'number' || isNaN(mech.roadDistance)) {
+            mech.etaFoot = mech.etaBoda = mech.etaMatatu = mech.roadDuration = null;
+            return;
+        }
+        var d = mech.roadDistance;
+        if (typeof mech.roadDuration !== 'number' || isNaN(mech.roadDuration)) {
+            mech.roadDuration = (d / CAR_DEFAULT_SPEED) * 60;
+        }
+        mech.etaFoot   = (d / WALK_SPEED)   * 60;
+        mech.etaBoda   = (d / BODA_SPEED)   * 60;
+        mech.etaMatatu = (d / MATATU_SPEED) * 60;
+    }
+
+    function fetchBestRoute(profile, overview, lng1, lat1, lng2, lat2) {
+        var url = `https://router.project-osrm.org/route/v1/${profile}/${lng1},${lat1};${lng2},${lat2}?overview=${overview}&geometries=geojson&alternatives=true&annotations=duration,distance`;
+        return fetch(url).then(res => res.json()).then(data => {
+            if (!data || !data.routes || data.routes.length === 0) return null;
+            var best = data.routes.reduce((min, r) => (r.duration < min.duration ? r : min), data.routes[0]);
+            return best;
+        }).catch(err => { console.warn("OSRM error", err); return null; });
+    }
+
+    function updatePopupWithRoute(mech, best) {
+        if (best) {
+            mech._driving_geometry = best.geometry;
+            mech._driving_best_summary = { distance: best.distance, duration: best.duration };
+            mech.roadDistance = best.distance / 1000;
+            mech.roadDuration = best.duration / 60;
+            mech.etaMatatu = mech.roadDuration * 1.15;
+        }
+        var etaText = `Walk: ${formatETA(mech.etaFoot)} | Boda: ${formatETA(mech.etaBoda)} | Matatu: ${formatETA(mech.etaMatatu)} | Car: ${formatETA(mech.roadDuration)}`;
+        var distKm = mech.roadDistance ? mech.roadDistance.toFixed(2) : '—';
+        var popupContent = `<b>${mech.garage_name}</b><br>Services: ${mech.services_offered || ''}<br>Distance: ${distKm} km<br>ETA: ${etaText}<br><div style="margin-top:8px"><button onclick="bookMechanic(${mech.id})" style="background:#1890ff; color:white; border:none; padding:8px 16px; border-radius:999px; cursor:pointer; font-weight:600;">Book Now</button></div>`;
+        mech.marker.bindPopup(popupContent);
+    }
+
+    function drawRoute(mech) {
+        if (!mech) return;
+        if (routeLine) { try { map.removeLayer(routeLine); } catch (e) {} routeLine = null; }
+
+        if (!mech.marker) {
+            console.warn('Marker missing for mechanic', mech.id);
             return;
         }
 
-        // store geometry + summary for reuse
-        mech._driving_geometry = best.geometry;
-        mech._driving_best_summary = { distance: best.distance, duration: best.duration };
-        mech.roadDistance = best.distance / 1000;
-        mech.roadDuration = best.duration / 60;
-
-        // matatu approx 15% slower than car (adjust multiplier if desired)
-        mech.etaMatatu = mech.roadDuration * 1.15;
-
-        var coords = best.geometry.coordinates.map(c => [c[1], c[0]]);
-        routeLine = L.polyline(coords, { color:'#3498db', weight:5, opacity:0.95, lineJoin:'round' }).addTo(map);
-
-        var carMinutes = best.duration / 60;
-        var etaText = `Walk: ${formatETA(mech.etaFoot)} | Boda: ${formatETA(mech.etaBoda)} | Matatu: ${formatETA(mech.etaMatatu)} | Car: ${formatETA(carMinutes)}`;
-        var distKm = (best.distance / 1000).toFixed(2);
-
-        mech.marker.bindPopup(
-            `<b>${mech.garage_name}</b><br>
-             Services: ${mech.services_offered || ''}<br>
-             Distance: ${distKm} km<br>
-             ETA: ${etaText}<br>
-             <div style="margin-top:8px"><button onclick="bookMechanic(${mech.id})">Book</button></div>`
-        ).openPopup();
-
-        try { map.fitBounds(routeLine.getBounds(), { padding:[60,60] }); } catch(e) { console.warn(e); }
-    }).catch(err => {
-        console.warn('drawRoute error', err);
-        var etaTextFallback = `Walk: ${formatETA(mech.etaFoot)} | Boda: ${formatETA(mech.etaBoda)} | Matatu: ${formatETA(mech.etaMatatu)} | Car: ${formatETA(mech.roadDuration)}`;
-        mech.marker.bindPopup(`<b>${mech.garage_name}</b><br>Services: ${mech.services_offered || ''}<br>Distance: —<br>ETA: ${etaTextFallback}<br><div style="margin-top:8px"><button onclick="bookMechanic(${mech.id})">Book</button></div>`).openPopup();
-    });
-}
-
-// ---------- render results, mark nearest + update map ----------
-function renderResults(filterService = '') {
-    var container = document.getElementById('results');
-    container.innerHTML = '';
-
-    var filtered = mechanics.filter(m => {
-        var svc = (m.services_offered || '').toLowerCase();
-        return (filterService === '' || svc.includes(filterService));
-    });
-
-    // sort by driving distance (nulls go last)
-    filtered.sort((a,b) => (a.roadDistance == null ? 9999 : a.roadDistance) - (b.roadDistance == null ? 9999 : b.roadDistance));
-
-    // Update marker visibility / emphasis on the map based on filter
-    var filteredIds = new Set(filtered.map(m => String(m.id)));
-    mechanics.forEach(m => {
-        if (!m.marker) return;
-        if (filteredIds.size === 0 || filteredIds.has(String(m.id))) {
-            // fully visible when matches filter (or when no filter applied)
-            m.marker.setOpacity(1);
-        } else {
-            // de‑emphasise non‑matching mechanics
-            m.marker.setOpacity(0.2);
+        if (mech._driving_geometry && mech._driving_geometry.coordinates && mech._driving_geometry.coordinates.length) {
+            var coords = mech._driving_geometry.coordinates.map(c => [c[1], c[0]]);
+            routeLine = L.polyline(coords, { color:'#3498db', weight:5, opacity:0.95, lineJoin:'round' }).addTo(map);
+            updatePopupWithRoute(mech, null);
+            map.fitBounds(routeLine.getBounds(), { padding:[60,60] });
+            return;
         }
-    });
 
-    if (filtered.length === 0) {
-        container.innerHTML = "<div class='result-card'><div class='meta'>No mechanics found</div></div>";
-        return;
+        return fetchBestRoute('driving','full', driverLng, driverLat, mech.longitude, mech.latitude).then(best => {
+            if (best) {
+                var coords = best.geometry.coordinates.map(c => [c[1], c[0]]);
+                routeLine = L.polyline(coords, { color:'#3498db', weight:5, opacity:0.95, lineJoin:'round' }).addTo(map);
+                updatePopupWithRoute(mech, best);
+                map.fitBounds(routeLine.getBounds(), { padding:[60,60] });
+            } else {
+                updatePopupWithRoute(mech, null);
+            }
+        }).catch(err => {
+            console.warn(err);
+            updatePopupWithRoute(mech, null);
+        });
     }
 
-    var nearestId = filtered[0].id;
-
-    filtered.forEach(m => {
-        var card = document.createElement('div');
-        card.className = 'result-card' + (m.id === nearestId ? ' nearest' : '');
-        card.setAttribute('data-mech-id', m.id);
-
-        // IMPORTANT: do NOT force fallback zeros with "|| 0" here — show '—' if missing so differences are visible
-        var etaText = `Walk: ${formatETA(m.etaFoot)} | Boda: ${formatETA(m.etaBoda)} | Matatu: ${formatETA(m.etaMatatu)} | Car: ${formatETA(m.roadDuration)}`;
-        var distanceText = (m.roadDistance != null) ? (m.roadDistance.toFixed(2) + ' km') : '—';
-
-        card.innerHTML = `
-            <div class="meta"><strong>${m.garage_name}</strong></div>
-            <div class="small">${m.services_offered || ''}</div>
-            <div class="small">Experience: ${m.experience || 0} yrs</div>
-            <div class="small">Distance: ${distanceText}</div>
-            <div class="small">ETA: ${etaText}</div>
-            <div class="result-actions">
-              <button class="secondary" onclick="focusMechanic(${m.id})"><i class="fas fa-route"></i> View</button>
-              <button onclick="bookMechanic(${m.id})"><i class="fas fa-calendar-check"></i> Book</button>
-            </div>
-        `;
-        container.appendChild(card);
-    });
-
-    // scroll nearest into view for better UX
-    setTimeout(() => {
-      var nearestEl = container.querySelector('.result-card.nearest');
-      if (nearestEl) nearestEl.scrollIntoView({behavior:'smooth', block:'center'});
-    }, 120);
-
-    // automatically focus the nearest mechanic from the filtered list on the map
-    if (nearestId != null) {
-        focusMechanic(nearestId);
+    function bookMechanic(id){
+        window.location.href = "/mechanics_tracer/forms/bookings/book_mechanic.php?mechanic_id=" + id;
     }
-}
 
-// ---------- focus + booking ----------
-function focusMechanic(id) {
-    var mech = mechanics.find(x => x.id == id);
-    if (!mech) return;
-    // center then draw
-    map.setView([mech.latitude, mech.longitude], 15);
-    // ensure we draw using the best/full geometry if available
-    drawRoute(mech);
-}
+    // ----- LOAD MECHANICS -----
+    function loadMechanics() {
+        mechanics.forEach(m => {
+            m.latitude = Number(m.latitude);
+            m.longitude = Number(m.longitude);
+            if (!m.latitude || !m.longitude) return;
+            if (m.marker) try { map.removeLayer(m.marker); } catch(e){}
+            var marker = L.marker([m.latitude, m.longitude], { icon: mechanicIcon }).addTo(map);
+            marker.bindPopup(`<b>${m.garage_name}</b><br>Services: ${m.services_offered || ''}<br><i>Loading ETA...</i>`);
+            m.marker = marker;
+        });
 
-// booking mechanic (redirect to booking page to keep flow consistent)
-function bookMechanic(id){
-    window.location.href = "/mechanics_tracer/forms/bookings/book_mechanic.php?mechanic_id=" + id;
-}
-
-// ---------- place markers and fetch mode routes intelligently ----------
-function loadMechanics() {
-    // clear any existing markers (if reloading)
-    mechanics.forEach(m => {
-        m.latitude = Number(m.latitude);
-        m.longitude = Number(m.longitude);
-        if (!m.latitude || !m.longitude) return;
-        if (m.marker) {
-          try { map.removeLayer(m.marker); } catch(e){ }
-        }
-        // create marker
-        var marker = L.marker([m.latitude, m.longitude], { icon: mechanicIcon }).addTo(map);
-        marker.bindPopup(`<b>${m.garage_name}</b><br>Services: ${m.services_offered || ''}<br>Experience: ${m.experience || 0} yrs`);
-        m.marker = marker;
-    });
-
-    // For each mechanic perform one driving-profile request in parallel (we derive walk/boda/matatu from distance),
-    // but batch mechanics to avoid overwhelming OSRM.
-    var concurrency = 5;
-    var queue = mechanics.slice().filter(m => m.latitude && m.longitude);
-
-    function worker() {
-        if (queue.length === 0) return Promise.resolve();
-        var batch = queue.splice(0, concurrency);
-        return Promise.all(batch.map(m => {
-            return fetchBestRoute('driving','false', driverLng, driverLat, m.longitude, m.latitude)
-                .then(best => {
-                    if (best) {
-                        m.roadDistance = best.distance / 1000; // km
-                        m.roadDuration = best.duration / 60;   // minutes
-                        m._driving_best_summary = { distance: best.distance, duration: best.duration };
+        var queue = mechanics.slice().filter(m => m.latitude && m.longitude);
+        var concurrency = 5;
+        function worker() {
+            if (queue.length === 0) return Promise.resolve();
+            var batch = queue.splice(0, concurrency);
+            return Promise.all(batch.map(m => {
+                return fetchBestRoute('driving','false', driverLng, driverLat, m.longitude, m.latitude)
+                    .then(best => {
+                        if (best) {
+                            m.roadDistance = best.distance / 1000;
+                            m.roadDuration = best.duration / 60;
+                            m._driving_best_summary = { distance: best.distance, duration: best.duration };
+                        } else {
+                            m.roadDistance = null; m.roadDuration = null; m._driving_best_summary = null;
+                        }
                         fillModeEtasFromDistance(m);
-                    } else {
-                        m.roadDistance = null;
-                        m.roadDuration = null;
-                        m._driving_best_summary = null;
+                        updatePopupWithRoute(m, null);
+                        return m;
+                    }).catch(() => {
+                        m.roadDistance = null; m.roadDuration = null; m._driving_best_summary = null;
                         fillModeEtasFromDistance(m);
-                    }
-                    return m;
-                }).catch(() => {
-                    m.roadDistance = null;
-                    m.roadDuration = null;
-                    m._driving_best_summary = null;
-                    fillModeEtasFromDistance(m);
-                    return m;
-                });
-        })).then(() => worker());
+                        updatePopupWithRoute(m, null);
+                        return m;
+                    });
+            })).then(() => worker());
+        }
+        return worker().then(() => {
+            mechanicsLoaded = true;
+            fitMapOnce();
+        }).catch(err => {
+            console.warn("Error loading mechanics", err);
+            mechanicsLoaded = true;
+            fitMapOnce();
+        });
     }
 
-    // run workers
-    return worker().then(() => {
-        // all mechanics loaded with their ETA/distance
-        // automatically pick nearest by driving distance
-        var candidates = mechanics.filter(m => typeof m.roadDistance === 'number' && !isNaN(m.roadDistance));
-        candidates.sort((a,b) => a.roadDistance - b.roadDistance);
-        var nearest = candidates[0];
-        renderResults();
-        if (nearest) {
-            // optionally prefetch full driving geometry for the nearest mechanic for fastest draw
-            fetchBestRoute('driving','full', driverLng, driverLat, nearest.longitude, nearest.latitude)
-              .then(fullBest => {
-                  if (fullBest) {
-                      nearest._driving_geometry = fullBest.geometry;
-                      nearest._driving_best_summary = { distance: fullBest.distance, duration: fullBest.duration };
-                      nearest.roadDistance = fullBest.distance / 1000;
-                      nearest.roadDuration = fullBest.duration / 60;
-                      nearest.etaMatatu = nearest.roadDuration * 1.15;
-                  }
-                  drawRoute(nearest);
-              }).catch(()=> drawRoute(nearest));
-        } else {
-            // if no driving routes, just center map on driver
-            map.setView([driverLat, driverLng], 13);
-        }
-    }).catch(err => {
-        console.warn("Error loading mechanics", err);
-        renderResults();
-    });
-}
-
-// ---------- geolocation ----------
-if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(function(pos) {
-        driverLat = pos.coords.latitude;
-        driverLng = pos.coords.longitude;
-        if (driverMarker) map.removeLayer(driverMarker);
-        driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon }).addTo(map).bindPopup("📍 You are here").openPopup();
-        map.setView([driverLat, driverLng], 13);
-        resizeMap();
-        loadMechanics();
-    }, function(err) {
-        // fallback to defaults
+    // ----- GEOLOCATION -----
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            driverLat = pos.coords.latitude;
+            driverLng = pos.coords.longitude;
+            if (driverMarker) map.removeLayer(driverMarker);
+            driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon }).addTo(map).bindPopup("📍 You are here").openPopup();
+            resizeMap();
+            loadMechanics();
+        }, function(err) {
+            driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon }).addTo(map);
+            resizeMap();
+            loadMechanics();
+        }, { enableHighAccuracy: true, timeout: 5000 });
+    } else {
         driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon }).addTo(map);
         resizeMap();
         loadMechanics();
-    }, { enableHighAccuracy: true, timeout: 5000 });
-} else {
-    resizeMap();
-    loadMechanics();
-}
+    }
 
-// ---------- search ----------
-function searchMechanics() {
-    var service = document.getElementById("serviceType").value.toLowerCase();
-    renderResults(service);
-}
-
-// initial layout fix
-setTimeout(function(){ resizeMap(); }, 300);
-
-
-// styling markers
-
+    setTimeout(function(){ resizeMap(); }, 300);
 </script>
 </body>
 </html>

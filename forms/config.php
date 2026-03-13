@@ -14,6 +14,9 @@ define("FORMS_URL", BASE_URL . "forms/");
 define("DASHBOARD_URL", BASE_URL . "dashboard/");
 define("DASHBOARD_PATH", $_SERVER['DOCUMENT_ROOT'] . "/mechanics_tracer/dashboard/");
 
+// Admin panel URL (used for redirects)
+define("ADMIN_URL", BASE_URL . "admin/");
+
 $host = "localhost";
 $db_name = "mechanic_tracer"; // use your database name
 $username = "root";          // your DB username

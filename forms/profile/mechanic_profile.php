@@ -19,6 +19,8 @@ $stmt->execute();
 $resExisting = $stmt->get_result();
 if ($resExisting && $resExisting->num_rows > 0) {
     $existing = $resExisting->fetch_assoc();
+    // Decode the JSON service_ids into an array
+    $existing['service_ids_array'] = json_decode($existing['service_ids'] ?? '[]', true);
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -27,23 +29,44 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $experience = trim($_POST['experience'] ?? '');
     $certifications = trim($_POST['certifications'] ?? '');
 
+    // Vehicle types: stored as comma-separated string
     $vehicle_types = isset($_POST['vehicle_types']) 
         ? implode(",", $_POST['vehicle_types']) 
         : '';
 
-    $services_offered = isset($_POST['services_offered']) 
-        ? implode(",", $_POST['services_offered']) 
-        : '';
+    // ---- Service IDs: sanitize and convert to integers ----
+    $raw_ids = $_POST['service_ids'] ?? [];
+    // Convert to integers and remove any that are not > 0
+    $service_ids = array_filter(array_map('intval', $raw_ids), function($id) { return $id > 0; });
+    $service_ids_json = json_encode(array_values($service_ids)); // re-index
+
+    // For debugging (remove after testing)
+    error_log("POST service_ids raw: " . print_r($raw_ids, true));
+    error_log("Sanitized service_ids: " . print_r($service_ids, true));
+    error_log("JSON to save: " . $service_ids_json);
+
+    // Build comma-separated service names for the old services_offered column
+    $service_names = [];
+    if (!empty($service_ids)) {
+        $placeholders = implode(',', array_fill(0, count($service_ids), '?'));
+        $types = str_repeat('i', count($service_ids));
+        $stmt = $conn->prepare("SELECT service_name FROM services WHERE id IN ($placeholders)");
+        $stmt->bind_param($types, ...$service_ids);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($row = $res->fetch_assoc()) {
+            $service_names[] = $row['service_name'];
+        }
+    }
+    $services_offered = implode(',', $service_names);
 
     $latitude = trim($_POST['latitude'] ?? '');
     $longitude = trim($_POST['longitude'] ?? '');
-
-    // store availability as tinyint(1) to match DB schema
     $availability = 1;
 
     // Validation
-    if (empty($garage_name) || empty($experience) || empty($vehicle_types) || empty($services_offered)) {
-        $error = "Please fill in all required fields.";
+    if (empty($garage_name) || empty($experience) || empty($vehicle_types) || empty($service_ids)) {
+        $error = "Please fill in all required fields and select at least one service.";
     } else {
 
         // Check if mechanic profile exists
@@ -53,51 +76,51 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $result = $check->get_result();
 
         if ($result->num_rows > 0) {
-            // ✅ UPDATE profile
+            // UPDATE profile
             $sql = "UPDATE mechanics SET
                     garage_name=?,
                     experience=?,
                     certifications=?,
                     vehicle_types=?,
                     services_offered=?,
+                    service_ids=?,
                     latitude=?,
                     longitude=?,
                     availability=?
                     WHERE user_id=?";
 
             $stmt = $conn->prepare($sql);
-            // types: s (garage_name), i (experience), s (certifications), s (vehicle_types),
-            // s (services_offered), s (latitude), s (longitude), i (availability), i (user_id)
+            // types: s, i, s, s, s, s, s, s, i, i
             $stmt->bind_param(
-                "sisssssii",
+                "sissssssii",
                 $garage_name,
                 $experience,
                 $certifications,
                 $vehicle_types,
                 $services_offered,
+                $service_ids_json,
                 $latitude,
                 $longitude,
                 $availability,
                 $user_id
             );
-
         } else {
-            // ✅ INSERT new profile
+            // INSERT new profile
             $sql = "INSERT INTO mechanics
-            (user_id, garage_name, experience, certifications, vehicle_types, services_offered, latitude, longitude, availability)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    (user_id, garage_name, experience, certifications, vehicle_types, services_offered, service_ids, latitude, longitude, availability)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = $conn->prepare($sql);
-            // types: i (user_id), s (garage_name), i (experience), s (certifications),
-            // s (vehicle_types), s (services_offered), s (latitude), s (longitude), i (availability)
+            // types: i, s, i, s, s, s, s, s, s, i
             $stmt->bind_param(
-                "isisssssi",
+                "isissssssi",
                 $user_id,
                 $garage_name,
                 $experience,
                 $certifications,
                 $vehicle_types,
                 $services_offered,
+                $service_ids_json,
                 $latitude,
                 $longitude,
                 $availability
@@ -105,7 +128,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         if ($stmt->execute()) {
-
             // Update users table
             $update = $conn->prepare("UPDATE users SET role='mechanic', profile_completed=1 WHERE id=?");
             $update->bind_param("i", $user_id);
@@ -116,11 +138,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             header("Location: " . DASHBOARD_URL . "mechanic_dashboard.php");
             exit();
-
         } else {
-            // ❌ hide technical error from user
+            // Log the actual error and show a generic message
             error_log("Mechanic profile error: " . $stmt->error);
-            $error = "Something went wrong while saving your profile. Please try again.";
+            // Temporarily show the actual error for debugging (remove after fixing)
+            $error = "Database error: " . $stmt->error;  // ← remove this line after testing
+            // $error = "Something went wrong while saving your profile. Please try again.";
         }
     }
 }
@@ -148,6 +171,7 @@ function old_or_existing($key, $default = '') {
     return htmlspecialchars($default, ENT_QUOTES);
 }
 
+// Determine selected vehicle types
 $selected_vehicle_types = [];
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['vehicle_types'])) {
     $selected_vehicle_types = (array)$_POST['vehicle_types'];
@@ -155,11 +179,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['vehicle_types'])) {
     $selected_vehicle_types = array_map('trim', explode(',', $existing['vehicle_types']));
 }
 
-$selected_services = [];
-if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['services_offered'])) {
-    $selected_services = (array)$_POST['services_offered'];
-} elseif ($existing && !empty($existing['services_offered'])) {
-    $selected_services = array_map('trim', explode(',', $existing['services_offered']));
+// Determine selected service IDs (ensure integers)
+$selected_service_ids = [];
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['service_ids'])) {
+    $selected_service_ids = array_map('intval', (array)$_POST['service_ids']);
+} elseif ($existing && !empty($existing['service_ids_array'])) {
+    $selected_service_ids = $existing['service_ids_array'];
 }
 
 $lat_value = '';
@@ -174,26 +199,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ?>
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mechanic Profile</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
   <style>
+    /* ===== Your existing CSS (keep exactly as before) ===== */
     body{
       margin:0;
       font-family:'Segoe UI',sans-serif;
       background:#f4f6f8;
       color:#111827;
     }
-
     .page-shell{
       max-width:1120px;
       margin:32px auto 40px;
       padding:0 16px;
     }
-
     .page-header{
       margin-bottom:18px;
     }
@@ -207,14 +230,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       font-size:0.96rem;
       color:#6b7280;
     }
-
     .profile-layout{
       display:grid;
       grid-template-columns:minmax(0,1.1fr) minmax(0,1.4fr);
       gap:18px;
       align-items:flex-start;
     }
-
     .card{
       background:#ffffff;
       border-radius:16px;
@@ -222,7 +243,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       box-shadow:0 10px 25px rgba(15,23,42,0.06);
       border:1px solid #e5e7eb;
     }
-
     .card-header{
       display:flex;
       align-items:center;
@@ -239,7 +259,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       color:#6b7280;
       margin-bottom:8px;
     }
-
     .form-group{
       display:flex;
       flex-direction:column;
@@ -268,7 +287,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       border-color:#0f172a;
       box-shadow:0 0 0 2px rgba(15,23,42,0.18);
     }
-
     .pill-checkboxes{
       display:flex;
       flex-wrap:wrap;
@@ -316,7 +334,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     .pill-label.active span.txt{
       color:#f9fafb;
     }
-
     .services-grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -375,7 +392,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     .info-icon:hover span.tooltip{
       opacity:1;
     }
-
     .service-list{
       display:flex;
       flex-wrap:wrap;
@@ -408,7 +424,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       border-color:#111827;
       color:#f9fafb;
     }
-
     #map{
       width:100%;
       height:230px;
@@ -430,7 +445,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       font-size:0.86rem;
       background:#f9fafb;
     }
-
     .error{
       background:#fee2e2;
       color:#b91c1c;
@@ -440,7 +454,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       margin-bottom:12px;
       text-align:center;
     }
-
     .form-actions{
       display:flex;
       justify-content:flex-end;
@@ -463,7 +476,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     .btn-primary:hover{
       filter:brightness(1.05);
     }
-
     @media (max-width: 900px){
       .profile-layout{
         grid-template-columns:1fr;
@@ -481,177 +493,165 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
   </style>
 </head>
-
 <body>
 
-  <div class="page-shell">
-    <header class="page-header">
-      <h1 class="page-title">Complete Your Garage Profile for Accurate Recommendations</h1>
-      <p class="page-subtitle">We use your garage details, vehicle types and services to match you with the right drivers.</p>
-    </header>
+<div class="page-shell">
+  <header class="page-header">
+    <h1 class="page-title">Complete Your Garage Profile for Accurate Recommendations</h1>
+    <p class="page-subtitle">We use your garage details, vehicle types and services to match you with the right drivers.</p>
+  </header>
 
-    <?php if (isset($error)): ?>
-      <div class="error"><?php echo $error; ?></div>
-    <?php endif; ?>
+  <?php if (isset($error)): ?>
+    <div class="error"><?php echo $error; ?></div>
+  <?php endif; ?>
 
-    <form method="POST">
-      <div class="profile-layout">
-        <!-- Left: garage info + vehicle types + location -->
-        <section class="card" aria-label="Garage information">
-          <div class="card-header">
-            <div class="card-title">Garage information</div>
-          </div>
-          <p class="card-sub">Tell drivers who you are and where your garage is located.</p>
+  <form method="POST">
+    <div class="profile-layout">
+      <!-- Left: garage info + vehicle types + location -->
+      <section class="card" aria-label="Garage information">
+        <div class="card-header">
+          <div class="card-title">Garage information</div>
+        </div>
+        <p class="card-sub">Tell drivers who you are and where your garage is located.</p>
 
-          <div class="form-group">
-            <label for="garage_name">Garage Name <span style="color:#b91c1c">*</span></label>
-            <input type="text" class="text-input" name="garage_name" id="garage_name" placeholder="e.g. Skyline Auto Garage" required
-                   value="<?php echo old_or_existing('garage_name'); ?>">
-          </div>
+        <div class="form-group">
+          <label for="garage_name">Garage Name <span style="color:#b91c1c">*</span></label>
+          <input type="text" class="text-input" name="garage_name" id="garage_name" placeholder="e.g. Skyline Auto Garage" required
+                 value="<?php echo old_or_existing('garage_name'); ?>">
+        </div>
 
-          <div class="form-group">
-            <label for="experience">Years of Experience <span style="color:#b91c1c">*</span></label>
-            <input type="number" class="text-input" name="experience" id="experience" min="0" max="80"
-                   placeholder="How many years have you been a mechanic?" required
-                   value="<?php echo old_or_existing('experience'); ?>">
-          </div>
+        <div class="form-group">
+          <label for="experience">Years of Experience <span style="color:#b91c1c">*</span></label>
+          <input type="number" class="text-input" name="experience" id="experience" min="0" max="80"
+                 placeholder="How many years have you been a mechanic?" required
+                 value="<?php echo old_or_existing('experience'); ?>">
+        </div>
 
-          <div class="form-group">
-            <label for="certifications">Certifications / Skills <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
-            <input type="text" class="text-input" name="certifications" id="certifications"
-                   placeholder="e.g. Engine specialist, Brake expert, ECU diagnostics"
-                   value="<?php echo old_or_existing('certifications'); ?>">
-            <small>Add any formal training or special skills you want drivers to see.</small>
-          </div>
+        <div class="form-group">
+          <label for="certifications">Certifications / Skills <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
+          <input type="text" class="text-input" name="certifications" id="certifications"
+                 placeholder="e.g. Engine specialist, Brake expert, ECU diagnostics"
+                 value="<?php echo old_or_existing('certifications'); ?>">
+          <small>Add any formal training or special skills you want drivers to see.</small>
+        </div>
 
-          <div class="form-group">
-            <label>Vehicle Types You Service <span style="color:#b91c1c">*</span></label>
-            <div class="pill-checkboxes">
-              <?php
-              $vehicleOptions = ['Car','Truck','Motorbike','Van','Bus'];
-              foreach ($vehicleOptions as $v):
-                  $isChecked = in_array($v, $selected_vehicle_types);
-              ?>
-                <label class="pill-label <?php echo $isChecked ? 'active' : ''; ?>">
-                  <input type="checkbox" name="vehicle_types[]" value="<?php echo htmlspecialchars($v, ENT_QUOTES); ?>"
-                         <?php echo $isChecked ? 'checked' : ''; ?>
-                         onchange="this.parentElement.classList.toggle('active', this.checked)">
-                  <span class="pill-dot"></span>
-                  <span class="txt"><?php echo htmlspecialchars($v); ?></span>
-                </label>
-              <?php endforeach; ?>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Garage Location <span style="color:#b91c1c">*</span></label>
-            <small>We’ll use this to calculate distance and ETA for nearby drivers.</small>
-            <div id="map"></div>
-            <div class="lat-lon">
-              <input type="text" id="latitude" name="latitude" placeholder="Latitude" readonly required value="<?php echo $lat_value; ?>">
-              <input type="text" id="longitude" name="longitude" placeholder="Longitude" readonly required value="<?php echo $lng_value; ?>">
-            </div>
-          </div>
-        </section>
-
-        <!-- Right: services offered -->
-        <section class="card" aria-label="Services offered">
-          <div class="card-header">
-            <div class="card-title">Services you offer</div>
-          </div>
-          <p class="card-sub">Pick all services you can confidently provide. This powers search and bookings.</p>
-
-          <div class="services-grid">
+        <div class="form-group">
+          <label>Vehicle Types You Service <span style="color:#b91c1c">*</span></label>
+          <div class="pill-checkboxes">
             <?php
-            // Simple descriptions for tooltips
-            $categoryHelp = [
-                'Engine Services' => 'Diagnostics, repairs and maintenance related to the engine and fuel system.',
-                'Electrical Services' => 'Battery, alternator, wiring, starters and electronic diagnostics.',
-                'Brake System' => 'Brake pads, discs, fluids and ABS related work.',
-                'Tire & Wheel' => 'Tire changes, puncture repair, alignment and balancing.',
-                'Transmission' => 'Clutch, gearbox and transmission related repairs.',
-                'Suspension & Steering' => 'Shocks, springs and steering stability issues.',
-                'General Maintenance' => 'Regular service items like oil, filters and spark plugs.',
-                'Emergency Roadside' => 'On-the-road help like jump starts, towing and flat tires.'
-            ];
-
-            foreach ($serviceCategories as $cat => $rows):
-              $tip = $categoryHelp[$cat] ?? 'Services related to this system of the vehicle.';
+            $vehicleOptions = ['Car','Truck','Motorbike','Van','Bus'];
+            foreach ($vehicleOptions as $v):
+                $isChecked = in_array($v, $selected_vehicle_types);
             ?>
-              <div class="service-card">
-                <div class="service-card-header">
-                  <div class="service-card-title"><?php echo htmlspecialchars($cat); ?></div>
-                  <div class="info-icon">
-                    ?
-                    <span class="tooltip"><?php echo htmlspecialchars($tip); ?></span>
-                  </div>
-                </div>
-                <div class="service-list">
-                  <?php foreach ($rows as $svc):
-                      $name = $svc['service_name'];
-                      $isSel = in_array($name, $selected_services);
-                  ?>
-                    <label class="service-chip <?php echo $isSel ? 'active' : ''; ?>">
-                      <input type="checkbox" name="services_offered[]" value="<?php echo htmlspecialchars($name, ENT_QUOTES); ?>"
-                             <?php echo $isSel ? 'checked' : ''; ?>
-                             onchange="this.parentElement.classList.toggle('active', this.checked)">
-                      <?php echo htmlspecialchars($name); ?>
-                    </label>
-                  <?php endforeach; ?>
-                </div>
-              </div>
+              <label class="pill-label <?php echo $isChecked ? 'active' : ''; ?>">
+                <input type="checkbox" name="vehicle_types[]" value="<?php echo htmlspecialchars($v, ENT_QUOTES); ?>"
+                       <?php echo $isChecked ? 'checked' : ''; ?>
+                       onchange="this.parentElement.classList.toggle('active', this.checked)">
+                <span class="pill-dot"></span>
+                <span class="txt"><?php echo htmlspecialchars($v); ?></span>
+              </label>
             <?php endforeach; ?>
           </div>
-        </section>
-      </div>
+        </div>
 
-      <div class="form-actions">
-        <button type="submit" class="btn-primary">
-          Save garage profile
-        </button>
-      </div>
-    </form>
-  </div>
+        <div class="form-group">
+          <label>Garage Location <span style="color:#b91c1c">*</span></label>
+          <small>We’ll use this to calculate distance and ETA for nearby drivers.</small>
+          <div id="map"></div>
+          <div class="lat-lon">
+            <input type="text" id="latitude" name="latitude" placeholder="Latitude" readonly required value="<?php echo $lat_value; ?>">
+            <input type="text" id="longitude" name="longitude" placeholder="Longitude" readonly required value="<?php echo $lng_value; ?>">
+          </div>
+        </div>
+      </section>
 
-  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-  <script>
-    // Initialize map
-    window.addEventListener('load', function() {
-      var initialLat = <?php echo $lat_value !== '' ? floatval($lat_value) : -1.2921; ?>;
-      var initialLng = <?php echo $lng_value !== '' ? floatval($lng_value) : 36.8219; ?>;
+      <!-- Right: services offered (using service IDs) -->
+      <section class="card" aria-label="Services offered">
+        <div class="card-header">
+          <div class="card-title">Services you offer</div>
+        </div>
+        <p class="card-sub">Pick all services you can confidently provide. This powers search and bookings.</p>
 
-      var map = L.map('map').setView([initialLat, initialLng], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
+        <div class="services-grid">
+          <?php
+          $categoryHelp = [
+              'Engine Services' => 'Diagnostics, repairs and maintenance related to the engine and fuel system.',
+              'Electrical Services' => 'Battery, alternator, wiring, starters and electronic diagnostics.',
+              'Brake System' => 'Brake pads, discs, fluids and ABS related work.',
+              'Tire & Wheel' => 'Tire changes, puncture repair, alignment and balancing.',
+              'Transmission' => 'Clutch, gearbox and transmission related repairs.',
+              'Suspension & Steering' => 'Shocks, springs and steering stability issues.',
+              'General Maintenance' => 'Regular service items like oil, filters and spark plugs.',
+              'Emergency Roadside' => 'On-the-road help like jump starts, towing and flat tires.'
+          ];
 
-      var marker = null;
+          foreach ($serviceCategories as $cat => $rows):
+            $tip = $categoryHelp[$cat] ?? 'Services related to this system of the vehicle.';
+          ?>
+            <div class="service-card">
+              <div class="service-card-header">
+                <div class="service-card-title"><?php echo htmlspecialchars($cat); ?></div>
+                <div class="info-icon">
+                  ?
+                  <span class="tooltip"><?php echo htmlspecialchars($tip); ?></span>
+                </div>
+              </div>
+              <div class="service-list">
+                <?php foreach ($rows as $svc):
+                    $isSel = in_array($svc['id'], $selected_service_ids);
+                ?>
+                  <label class="service-chip <?php echo $isSel ? 'active' : ''; ?>">
+                    <input type="checkbox" name="service_ids[]" value="<?php echo $svc['id']; ?>"
+                           <?php echo $isSel ? 'checked' : ''; ?>
+                           onchange="this.parentElement.classList.toggle('active', this.checked)">
+                    <?php echo htmlspecialchars($svc['service_name']); ?>
+                  </label>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      </section>
+    </div>
 
-      // If existing coords, show marker
-      if (!isNaN(initialLat) && !isNaN(initialLng) && "<?php echo $lat_value; ?>" !== "" && "<?php echo $lng_value; ?>" !== "") {
-        marker = L.marker([initialLat, initialLng]).addTo(map).bindPopup("Garage Location").openPopup();
-      }
+    <div class="form-actions">
+      <button type="submit" class="btn-primary">
+        Save garage profile
+      </button>
+    </div>
+  </form>
+</div>
 
-      // Try to locate user only when there is no saved location yet
-      if ("<?php echo $lat_value; ?>" === "" || "<?php echo $lng_value; ?>" === "") {
-        map.locate({
-            setView: true,
-            maxZoom: 15
-          })
-          .on('locationfound', function(e) {
-            var lat = e.latlng.lat;
-            var lng = e.latlng.lng;
-            document.getElementById('latitude').value = lat;
-            document.getElementById('longitude').value = lng;
-            if (marker) map.removeLayer(marker);
-            marker = L.marker([lat, lng]).addTo(map).bindPopup("Garage Location").openPopup();
-          })
-          .on('locationerror', function() {
-            // silently ignore; user can still click and set location manually later if implemented
-          });
-      }
-    });
-  </script>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script>
+  window.addEventListener('load', function() {
+    var initialLat = <?php echo $lat_value !== '' ? floatval($lat_value) : -1.2921; ?>;
+    var initialLng = <?php echo $lng_value !== '' ? floatval($lng_value) : 36.8219; ?>;
+
+    var map = L.map('map').setView([initialLat, initialLng], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    var marker = null;
+
+    if (!isNaN(initialLat) && !isNaN(initialLng) && "<?php echo $lat_value; ?>" !== "" && "<?php echo $lng_value; ?>" !== "") {
+      marker = L.marker([initialLat, initialLng]).addTo(map).bindPopup("Garage Location").openPopup();
+    }
+
+    if ("<?php echo $lat_value; ?>" === "" || "<?php echo $lng_value; ?>" === "") {
+      map.locate({ setView: true, maxZoom: 15 })
+        .on('locationfound', function(e) {
+          var lat = e.latlng.lat;
+          var lng = e.latlng.lng;
+          document.getElementById('latitude').value = lat;
+          document.getElementById('longitude').value = lng;
+          if (marker) map.removeLayer(marker);
+          marker = L.marker([lat, lng]).addTo(map).bindPopup("Garage Location").openPopup();
+        })
+        .on('locationerror', function() {});
+    }
+  });
+</script>
 </body>
-
 </html>

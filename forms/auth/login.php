@@ -1,18 +1,22 @@
 <?php
 session_start();
-include "../config.php";// your database connection file
-// require_once("../config.php");
+include "../config.php";
+require_once __DIR__ . "/../../admin/includes/rate_limit.php";
 
 $error = "";
 
 if($_SERVER["REQUEST_METHOD"] == "POST"){
 
-    $email = trim($_POST['email']);
-    $password = $_POST['password'];
-
-    if(empty($email) || empty($password)){
+    // Rate limiting (protects against brute force)
+    $rateErr = rate_limit_check();
+    if ($rateErr !== null) {
+        $error = $rateErr;
+    } elseif(empty(trim($_POST['email'] ?? '')) || empty($_POST['password'] ?? '')){
         $error = "Please fill in all fields.";
     } else {
+
+        $email = trim($_POST['email']);
+        $password = $_POST['password'];
 
         $sql = "SELECT * FROM users WHERE email = ?";
         $stmt = $conn->prepare($sql);
@@ -25,35 +29,44 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
 
             if(password_verify($password, $user['password'])){
 
+                rate_limit_clear_success();
+
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['role'] = $user['role'];
-                $_SESSION['profile_completed'] = $user['profile_completed'];
+                $_SESSION['profile_completed'] = $user['profile_completed'] ?? 1;
 
-                // ✅ REDIRECTION LOGIC
-                if($user['role'] == "pending"){
+                // Redirect by role
+                if($user['role'] == "admin"){
+                    header("Location: " . ADMIN_URL . "dashboard.php");
+                }
+                elseif($user['role'] == "pending"){
                     header("Location: ".FORMS_URL."profile/role_selection.php");
                 }
-                elseif($user['role'] == "driver" && $user['profile_completed'] == 0){
-                    header("Location: ".BASE_URL."profile/driver_profile.php");
+                elseif($user['role'] == "driver" && ($user['profile_completed'] ?? 0) == 0){
+                    header("Location: ".BASE_URL."forms/profile/driver_profile.php");
                 }
-                elseif($user['role'] == "mechanic" && $user['profile_completed'] == 0){
-                    header("Location: ".BASE_URL."profile/mechanic_profile.php");
+                elseif($user['role'] == "mechanic" && ($user['profile_completed'] ?? 0) == 0){
+                    header("Location: ".BASE_URL."forms/profile/mechanic_profile.php");
                 }
-                elseif($user['role'] == "driver" && $user['profile_completed'] == 1){
+                elseif($user['role'] == "driver"){
                     header("Location: ".BASE_URL."dashboard/driver_dashboard.php");
                 }
-                elseif($user['role'] == "mechanic" && $user['profile_completed'] == 1){
-                    header("Location: ".BASE_URL."./dashboard/mechanic_dashboard.php");
-                    // header("Location: " . BASE_URL . "auth/login.php");
+                elseif($user['role'] == "mechanic"){
+                    header("Location: ".BASE_URL."dashboard/mechanic_dashboard.php");
+                }
+                else {
+                    header("Location: " . BASE_URL);
                 }
 
                 exit();
 
             } else {
+                rate_limit_record_failure();
                 $error = "Incorrect password.";
             }
 
         } else {
+            rate_limit_record_failure();
             $error = "Account not found.";
         }
     }

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Mar 12, 2026 at 07:07 PM
+-- Generation Time: Mar 13, 2026 at 01:01 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -48,12 +48,13 @@ CREATE TABLE `bookings` (
 --
 
 INSERT INTO `bookings` (`id`, `driver_id`, `mechanic_id`, `service_requested`, `vehicle_type`, `booking_status`, `accepted_at`, `driver_latitude`, `driver_longitude`, `driver_address`, `notes`, `created_at`, `updated_at`) VALUES
-(2, 6, 30, 'Engine Repair', 'Car', 'completed', NULL, 0.000000, 0.000000, NULL, 'engine cant come on', '2026-03-09 18:33:58', '2026-03-11 22:13:58'),
 (3, 6, 30, 'Engine Repair', 'Car', 'cancelled', NULL, -0.825284, 34.617654, NULL, 'car has a lot of smoke\r\n', '2026-03-09 20:42:39', '2026-03-09 22:09:17'),
 (4, 6, 30, 'Engine Repair', 'Car', 'cancelled', NULL, -0.825284, 34.617654, NULL, 'tire burst', '2026-03-09 20:51:31', '2026-03-09 21:54:13'),
 (5, 6, 30, 'Engine Repair', 'Car', 'completed', NULL, -0.825849, 34.610439, NULL, 'hot engine im fearing it my break up', '2026-03-11 12:58:03', '2026-03-11 22:24:20'),
 (6, 6, 30, 'Engine Repair', 'Car', 'completed', NULL, -0.825734, 34.610291, NULL, 'hot engine im fearing it my break up', '2026-03-11 12:59:29', '2026-03-11 22:20:43'),
-(7, 6, 30, 'Engine Repair', 'Car', 'completed', NULL, -0.825734, 34.610291, NULL, 'hot engine im fearing it my break up', '2026-03-11 13:00:02', '2026-03-11 22:13:33');
+(7, 6, 30, 'Engine Repair', 'Car', 'completed', NULL, -0.825734, 34.610291, NULL, 'hot engine im fearing it my break up', '2026-03-11 13:00:02', '2026-03-11 22:13:33'),
+(8, 6, 30, 'Engine Repair', 'Car', 'completed', NULL, 0.000000, 0.000000, NULL, 'repairing the vehicle tyres for my car', '2026-03-12 21:34:27', '2026-03-12 22:25:50'),
+(9, 6, 31, 'ABS Repair,Brake Fluid Replacement', 'Car', 'completed', NULL, -0.825284, 34.617654, NULL, 'jjj', '2026-03-12 22:25:26', '2026-03-12 22:26:52');
 
 -- --------------------------------------------------------
 
@@ -134,7 +135,11 @@ CREATE TABLE `mechanics` (
 --
 
 INSERT INTO `mechanics` (`id`, `user_id`, `garage_name`, `experience`, `certifications`, `vehicle_types`, `services_offered`, `latitude`, `longitude`, `availability`, `created_at`, `service_ids`) VALUES
-(30, 4, 'kitere repair', 2, 'BRAKE EXPERT', 'Motorbike', 'Engine Repair', -0.825893, 34.609497, 0, '2026-02-26 19:15:33', NULL);
+(30, 4, 'kitere repair', 2, 'BRAKE EXPERT', 'Motorbike', 'Engine Repair', -0.825893, 34.609497, 0, '2026-02-26 19:15:33', '[1]'),
+(31, 6, 'motorcycle clinic', 4, 'cerified by kenya school of mechanical enginnering', 'Car,Truck,Motorbike,Van,Bus', 'ABS Repair,Brake Fluid Replacement,Brake Pad Replacement,Brake System Repair,Alternator Repair,Battery Replacement,Emergency Roadside Repair,Flat Tire Replacement,Engine Overhaul,Radiator Repair,Air Filter Replacement,Coolant Replacement,Shock Absorber Replacement,Steering Repair,Tire Puncture Repair,Clutch Repair', -0.825284, 34.617654, 1, '2026-03-12 21:44:21', '[14,12,11,13,7,6,32,34,3,5,26,28,23,24,16,19]'),
+(32, 7, 'james doe', 2, 'cerified in vehicle services', 'Car,Truck,Motorbike,Van,Bus', 'ABS Repair,Brake Pad Replacement,Alternator Repair,Emergency Roadside Repair,Towing Service,Engine Diagnostics,Air Filter Replacement,Filter Cleaning,Wheel Alignment,Clutch Repair', -0.830000, 34.610000, 1, '2026-03-13 09:55:16', '[14,11,7,32,33,2,26,29,18,19]'),
+(33, 8, 'skyline auto garage', 3, 'brake specialist', 'Car,Truck,Motorbike,Van,Bus', 'Engine Repair,Engine Diagnostics,Battery Replacement,Brake Pad Replacement,Brake Fluid Replacement,ABS Repair,Tire Replacement,Tire Puncture Repair,Wheel Balancing,Wheel Alignment,Clutch Repair,Gearbox Repair,Transmission Service,Shock Absorber Replacement,Air Filter Replacement,Filter Cleaning,Fuel Delivery,Emergency Roadside Repair', -0.830000, 34.610000, 1, '2026-03-13 10:47:11', '[\"14\",\"12\",\"11\",\"6\",\"32\",\"31\",\"2\",\"1\",\"26\",\"29\",\"23\",\"16\",\"15\",\"18\",\"17\",\"19\",\"20\",\"21\"]'),
+(35, 10, 'ary autos', 13, 'all', 'Car,Truck', 'Alternator Repair,Car Wiring Repair,ABS Repair', -0.830000, 34.610000, 1, '2026-03-13 12:11:46', '[14,7,9]');
 
 --
 -- Triggers `mechanics`
@@ -241,7 +246,10 @@ INSERT INTO `users` (`id`, `full_name`, `email`, `password`, `phone`, `role`, `p
 (2, 'Clifford Onchomba', 'cliffordisaboke1@gmail.com', '$2y$10$fMkNbnfhb1saBEHBAfbS8O8CJJIFifDJJqdl6WXUn50.vnHScWvmy', '0710698450', 'driver', 1, '2026-02-21 22:05:02'),
 (4, 'clifford isaboke', 'cliffordonchomba483@gmail.com', '$2y$10$hrPlsUbgQoPOBzy96tBOA.n0x0DSxav41qSGJXLSpijuaIsCGr1Qm', '0710698450', 'mechanic', 1, '2026-02-26 16:23:53'),
 (5, 'Clifford Onchomba', 'cliffordisaboke11@gmail.com', '$2y$10$DLJnGuicmdrykb1oMMEf3et1c369vR.3ico0K28IHJ4nuCCdzaanK', '10698450', 'driver', 1, '2026-02-26 16:55:48'),
-(6, 'jane', 'jane@mail.com', '$2y$10$JcTNQOuu0S7H9WqU04TmjOa.QYySohgrDQtd0EMEQOOMr.qAJsz6K', '10698450', 'pending', 0, '2026-03-12 20:42:05');
+(6, 'jane', 'jane@mail.com', '$2y$10$JcTNQOuu0S7H9WqU04TmjOa.QYySohgrDQtd0EMEQOOMr.qAJsz6K', '10698450', 'mechanic', 1, '2026-03-12 20:42:05'),
+(7, 'james', 'james@mail.com', '$2y$10$/MwAyZvwE01chh/eijRhP.3up/z71/Afcrz4H9hwqDpuuuxywKtEO', '10698450', 'mechanic', 1, '2026-03-13 09:53:55'),
+(8, 'alex', 'alex@gmail.com', '$2y$10$VaDW.iuDS.zs5pwXahbXTO6lPWgaUGsnqVPbphqmHzVp6.ETvbEWm', '10698450', 'mechanic', 1, '2026-03-13 10:45:38'),
+(10, 'ariana', 'ariana1@gmail.com', '$2y$10$uh/2DT9Jr0D6Muq1d4/0oO5A6NXbX6ta672JfDoU5gC/5.6BhWq6y', '10698450', 'mechanic', 1, '2026-03-13 12:11:10');
 
 --
 -- Indexes for dumped tables
@@ -290,7 +298,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `drivers`
@@ -302,7 +310,7 @@ ALTER TABLE `drivers`
 -- AUTO_INCREMENT for table `mechanics`
 --
 ALTER TABLE `mechanics`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT for table `services`
@@ -314,7 +322,7 @@ ALTER TABLE `services`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- Constraints for dumped tables
