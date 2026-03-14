@@ -31,6 +31,29 @@ $mechanic_lat = $mechanic['latitude'];
 $mechanic_lng = $mechanic['longitude'];
 $mechanic_name = $mechanic['mechanic_name'] ?? $mechanic['garage_name'];
 
+// Rating summary (if ratings table exists)
+$ratingSummary = null;
+$recentRatings = [];
+$rt = @$conn->query("SHOW TABLES LIKE 'ratings'");
+if ($rt && $rt->num_rows) {
+    $row = $conn->query("SELECT AVG(stars) AS avg_stars, COUNT(*) AS cnt FROM ratings WHERE mechanic_id = " . (int)$mechanic_id)->fetch_assoc();
+    if ($row && (int)$row['cnt'] > 0) {
+        $ratingSummary = $row;
+        $rq = $conn->prepare("
+            SELECT r.stars, r.review, r.created_at, u.full_name AS driver_name
+            FROM ratings r
+            JOIN drivers d ON r.driver_id = d.id
+            JOIN users u ON d.user_id = u.id
+            WHERE r.mechanic_id = ?
+            ORDER BY r.created_at DESC
+            LIMIT 3
+        ");
+        $rq->bind_param("i", $mechanic_id);
+        $rq->execute();
+        $recentRatings = $rq->get_result()->fetch_all(MYSQLI_ASSOC);
+    }
+}
+
 // Fetch bookings related to this mechanic
 $stmt = $conn->prepare("
     SELECT b.*, d.vehicle_type AS driver_vehicle_type, d.vehicle_make AS driver_vehicle_make, d.vehicle_model AS driver_vehicle_model, d.vehicle_year AS driver_vehicle_year, u.full_name AS driver_name
@@ -188,7 +211,7 @@ else $greeting = "Good evening";
         /* Stats Cards (now clickable) */
         .stats-cards {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(4, minmax(0, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -449,6 +472,37 @@ else $greeting = "Good evening";
                 <div class="card-right"><i class="fas fa-times-circle"></i></div>
             </div>
         </div>
+
+        <?php if ($ratingSummary && (int)$ratingSummary['cnt'] > 0): ?>
+        <div class="card" id="ratings" style="margin-bottom:24px;">
+            <div>
+                <h2 style="font-size:1.1rem;margin-bottom:8px;color:#0f172a;">Your rating</h2>
+                <p style="margin-bottom:6px;">
+                    <span style="color:#fbbf24;font-size:1.1rem;">
+                        <?php
+                        $rounded = (int)round($ratingSummary['avg_stars']);
+                        echo str_repeat('★', $rounded) . str_repeat('☆', 5 - $rounded);
+                        ?>
+                    </span>
+                    <?php echo number_format((float)$ratingSummary['avg_stars'], 1); ?>
+                    <span style="color:#64748b;">(<?php echo (int)$ratingSummary['cnt']; ?> ratings)</span>
+                </p>
+                <?php if (!empty($recentRatings)): ?>
+                    <ul style="margin-top:8px;list-style:none;padding-left:0;">
+                        <?php foreach ($recentRatings as $r): ?>
+                            <li style="margin-bottom:6px;">
+                                <strong><?php echo htmlspecialchars($r['driver_name']); ?></strong>
+                                <span style="color:#fbbf24;margin-left:4px;"><?php echo str_repeat('★', (int)$r['stars']); ?></span>
+                                <?php if (!empty($r['review'])): ?>
+                                    <br><span style="color:#4b5563;"><?php echo htmlspecialchars(mb_strimwidth($r['review'], 0, 80, '…')); ?></span>
+                                <?php endif; ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- Notification popup -->
         <div id="popup">Message</div>

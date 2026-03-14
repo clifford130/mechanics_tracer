@@ -4,19 +4,48 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 
 $id = (int)($_GET['id'] ?? 0);
-// Toggle mechanic availability
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_avail']) && csrf_verify() && $id > 0) {
-    $stmt = $conn->prepare("UPDATE mechanics SET availability = 1 - availability WHERE user_id = ?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
-    if ($stmt->affected_rows) {
-        header('Location: user_view.php?id=' . $id . '&msg=avail');
-        exit;
-    }
-}
 if ($id < 1) {
     header('Location: users.php');
     exit;
+}
+
+// Handle high-level user actions (delete user, remove profiles, toggle availability)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_verify()) {
+    if (isset($_POST['toggle_avail'])) {
+        $stmt = $conn->prepare("UPDATE mechanics SET availability = 1 - availability WHERE user_id = ?");
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        if ($stmt->affected_rows) {
+            header('Location: user_view.php?id=' . $id . '&msg=avail');
+            exit;
+        }
+    } elseif (isset($_POST['user_action'])) {
+        $action = $_POST['user_action'];
+
+        if ($action === 'delete_user') {
+            $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            header('Location: users.php?msg=deleted_user');
+            exit;
+        }
+
+        if ($action === 'remove_driver') {
+            $stmt = $conn->prepare("DELETE FROM drivers WHERE user_id = ?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            header('Location: user_view.php?id=' . $id . '&msg=driver_removed');
+            exit;
+        }
+
+        if ($action === 'remove_mechanic') {
+            $stmt = $conn->prepare("DELETE FROM mechanics WHERE user_id = ?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            header('Location: user_view.php?id=' . $id . '&msg=mechanic_removed');
+            exit;
+        }
+    }
 }
 
 $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
@@ -30,18 +59,16 @@ if (!$user) {
 }
 
 $driver = $mechanic = null;
-if ($user['role'] === 'driver') {
-    $st = $conn->prepare("SELECT * FROM drivers WHERE user_id = ?");
-    $st->bind_param("i", $id);
-    $st->execute();
-    $driver = $st->get_result()->fetch_assoc();
-}
-if ($user['role'] === 'mechanic') {
-    $st = $conn->prepare("SELECT * FROM mechanics WHERE user_id = ?");
-    $st->bind_param("i", $id);
-    $st->execute();
-    $mechanic = $st->get_result()->fetch_assoc();
-}
+// Load profiles if they still exist
+$st = $conn->prepare("SELECT * FROM drivers WHERE user_id = ?");
+$st->bind_param("i", $id);
+$st->execute();
+$driver = $st->get_result()->fetch_assoc();
+
+$st = $conn->prepare("SELECT * FROM mechanics WHERE user_id = ?");
+$st->bind_param("i", $id);
+$st->execute();
+$mechanic = $st->get_result()->fetch_assoc();
 
 // Bookings (as driver or mechanic)
 $user_bookings = [];
@@ -84,7 +111,20 @@ $active_nav = 'users';
 include __DIR__ . '/includes/header.php';
 ?>
 
-<?php $msg = ($_GET['msg'] ?? '') === 'avail' ? 'Availability updated.' : ''; ?>
+<?php
+$msgKey = $_GET['msg'] ?? '';
+if ($msgKey === 'avail') {
+    $msg = 'Availability updated.';
+} elseif ($msgKey === 'driver_removed') {
+    $msg = 'Driver profile removed.';
+} elseif ($msgKey === 'mechanic_removed') {
+    $msg = 'Mechanic profile removed.';
+} elseif ($msgKey === 'deleted_user') {
+    $msg = 'User deleted.';
+} else {
+    $msg = '';
+}
+?>
 
 <div class="top-bar">
     <div>
@@ -92,13 +132,20 @@ include __DIR__ . '/includes/header.php';
         <h1><?php echo htmlspecialchars($user['full_name']); ?></h1>
         <p><span class="badge badge-<?php echo htmlspecialchars($user['role']); ?>"><?php echo htmlspecialchars($user['role']); ?></span></p>
     </div>
-    <?php if ($mechanic): ?>
-    <form method="POST">
-        <?php echo csrf_field(); ?>
-        <input type="hidden" name="toggle_avail" value="1">
-        <button type="submit" class="btn btn-secondary"><i class="fas fa-exchange-alt"></i> Toggle availability</button>
-    </form>
-    <?php endif; ?>
+    <div class="flex" style="gap:8px;">
+        <?php if ($mechanic): ?>
+        <form method="POST">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="toggle_avail" value="1">
+            <button type="submit" class="btn btn-secondary"><i class="fas fa-exchange-alt"></i> Toggle availability</button>
+        </form>
+        <?php endif; ?>
+        <form method="POST" onsubmit="return confirm('Permanently delete this user and all related data?');">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="user_action" value="delete_user">
+            <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash-alt"></i> Delete user</button>
+        </form>
+    </div>
 </div>
 
 <?php if ($msg): ?><div class="alert alert-success"><?php echo htmlspecialchars($msg); ?></div><?php endif; ?>
@@ -125,6 +172,11 @@ include __DIR__ . '/includes/header.php';
         <tr><th>Year</th><td><?php echo htmlspecialchars($driver['vehicle_year']); ?></td></tr>
         <tr><th>Service preferences</th><td><?php echo htmlspecialchars($driver['service_preferences'] ?? '—'); ?></td></tr>
     </table>
+    <form method="POST" style="margin-top:10px;" onsubmit="return confirm('Remove driver profile? This will revert this user back to pending.');">
+        <?php echo csrf_field(); ?>
+        <input type="hidden" name="user_action" value="remove_driver">
+        <button type="submit" class="btn btn-secondary btn-sm"><i class="fas fa-user-slash"></i> Remove driver profile</button>
+    </form>
 </div>
 <?php endif; ?>
 
@@ -140,6 +192,11 @@ include __DIR__ . '/includes/header.php';
         <tr><th>Location</th><td><?php echo htmlspecialchars($mechanic['latitude'] . ', ' . $mechanic['longitude']); ?></td></tr>
         <tr><th>Available</th><td><?php echo $mechanic['availability'] ? 'Yes' : 'No'; ?></td></tr>
     </table>
+    <form method="POST" style="margin-top:10px;" onsubmit="return confirm('Remove mechanic profile? This will revert this user back to pending.');">
+        <?php echo csrf_field(); ?>
+        <input type="hidden" name="user_action" value="remove_mechanic">
+        <button type="submit" class="btn btn-secondary btn-sm"><i class="fas fa-wrench"></i> Remove mechanic profile</button>
+    </form>
 </div>
 <?php endif; ?>
 

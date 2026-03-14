@@ -18,6 +18,30 @@ if($row = $result->fetch_assoc()){
     $user_name = explode(" ", $row['full_name'])[0];
 }
 
+// Unrated completed bookings count (for notification)
+$pending_ratings_count = 0;
+$driver_row = null;
+$ds = $conn->prepare("SELECT id FROM drivers WHERE user_id = ?");
+$ds->bind_param("i", $user_id);
+$ds->execute();
+$driver_row = $ds->get_result()->fetch_assoc();
+if ($driver_row) {
+    $driver_id = (int)$driver_row['id'];
+    $rt = @$conn->query("SHOW TABLES LIKE 'ratings'");
+    if ($rt && $rt->num_rows) {
+        $sql = "
+            SELECT COUNT(*) 
+            FROM bookings b
+            LEFT JOIN ratings r ON r.booking_id = b.id
+            WHERE b.driver_id = ? AND b.booking_status = 'completed' AND r.id IS NULL
+        ";
+        $cs = $conn->prepare($sql);
+        $cs->bind_param("i", $driver_id);
+        $cs->execute();
+        $pending_ratings_count = (int)$cs->get_result()->fetch_row()[0];
+    }
+}
+
 // ----- Filtering logic (unchanged) -----
 $selected_services = isset($_GET['services']) ? (array)$_GET['services'] : [];
 $mechanics = [];
@@ -356,6 +380,20 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
         <i class="fas fa-bars"></i>
       </button>
     </div>
+
+    <?php if ($pending_ratings_count > 0): ?>
+    <div class="card" style="margin-bottom:16px;padding:14px 16px;border-radius:12px;background:#fefce8;border:1px solid #fde68a;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div>
+          <strong style="color:#92400e;">You have <?php echo $pending_ratings_count; ?> completed job<?php echo $pending_ratings_count === 1 ? '' : 's'; ?> to rate</strong>
+          <p style="margin:4px 0 0;font-size:0.9rem;color:#78350f;">Share feedback so other drivers can choose the best mechanics.</p>
+        </div>
+        <a href="/mechanics_tracer/dashboard/rate_mechanic.php" class="filter-btn" style="background:#0f172a;color:#f9fafb;border-color:#0f172a;text-decoration:none;">
+          <i class="fas fa-star"></i> Rate now
+        </a>
+      </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Filter modal -->
     <div class="filter-modal" id="filterModal">
