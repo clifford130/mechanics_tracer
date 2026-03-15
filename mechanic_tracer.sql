@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Mar 13, 2026 at 01:01 PM
+-- Generation Time: Mar 15, 2026 at 04:18 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -217,7 +217,7 @@ INSERT INTO `services` (`id`, `category`, `service_name`) VALUES
 (29, 'General Maintenance', 'Filter Cleaning'),
 (30, 'Emergency Roadside', 'Jump Start'),
 (31, 'Emergency Roadside', 'Fuel Delivery'),
-(32, 'Emergency Roadside', 'Emergency Roadside Repair'),
+(32, 'Emergency Roadside h', 'Emergency Roadside Repair'),
 (33, 'Emergency Roadside', 'Towing Service'),
 (34, 'Emergency Roadside', 'Flat Tire Replacement');
 
@@ -233,7 +233,7 @@ CREATE TABLE `users` (
   `email` varchar(255) NOT NULL,
   `password` varchar(255) NOT NULL,
   `phone` varchar(20) NOT NULL,
-  `role` enum('driver','mechanic','pending') DEFAULT 'pending',
+  `role` enum('driver','mechanic','pending','admin') DEFAULT 'pending',
   `profile_completed` tinyint(1) DEFAULT 0,
   `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -249,7 +249,8 @@ INSERT INTO `users` (`id`, `full_name`, `email`, `password`, `phone`, `role`, `p
 (6, 'jane', 'jane@mail.com', '$2y$10$JcTNQOuu0S7H9WqU04TmjOa.QYySohgrDQtd0EMEQOOMr.qAJsz6K', '10698450', 'mechanic', 1, '2026-03-12 20:42:05'),
 (7, 'james', 'james@mail.com', '$2y$10$/MwAyZvwE01chh/eijRhP.3up/z71/Afcrz4H9hwqDpuuuxywKtEO', '10698450', 'mechanic', 1, '2026-03-13 09:53:55'),
 (8, 'alex', 'alex@gmail.com', '$2y$10$VaDW.iuDS.zs5pwXahbXTO6lPWgaUGsnqVPbphqmHzVp6.ETvbEWm', '10698450', 'mechanic', 1, '2026-03-13 10:45:38'),
-(10, 'ariana', 'ariana1@gmail.com', '$2y$10$uh/2DT9Jr0D6Muq1d4/0oO5A6NXbX6ta672JfDoU5gC/5.6BhWq6y', '10698450', 'mechanic', 1, '2026-03-13 12:11:10');
+(10, 'ariana', 'ariana1@gmail.com', '$2y$10$uh/2DT9Jr0D6Muq1d4/0oO5A6NXbX6ta672JfDoU5gC/5.6BhWq6y', '10698450', 'mechanic', 1, '2026-03-13 12:11:10'),
+(11, 'clifford', 'sean@gmail.com', '$2y$10$/JFGr9ByZza1CwZQB83REOgNvVZgx0c45ohKG2.EhbU6xeNNk3KBW', '0705763981', 'admin', 1, '2026-03-13 22:44:19');
 
 --
 -- Indexes for dumped tables
@@ -316,13 +317,13 @@ ALTER TABLE `mechanics`
 -- AUTO_INCREMENT for table `services`
 --
 ALTER TABLE `services`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
 -- Constraints for dumped tables
