@@ -61,10 +61,14 @@ if (!empty($selected_services)) {
         }
         $where = implode(' OR ', $conditions);
 
-        $sql = "SELECT id, garage_name, vehicle_types, services_offered, 
-                       latitude, longitude, experience, service_ids
-                FROM mechanics
-                WHERE $where";
+        $queryWhere = str_replace("service_ids", "m.service_ids", $where);
+        $sql = "SELECT m.id, m.garage_name, m.vehicle_types, m.services_offered, 
+                       m.latitude, m.longitude, m.experience, m.service_ids,
+                       ROUND(AVG(r.stars), 1) as avg_rating, COUNT(r.id) as rating_count
+                FROM mechanics m
+                LEFT JOIN ratings r ON r.mechanic_id = m.id
+                WHERE m.availability = 1 AND ($queryWhere)
+                GROUP BY m.id";
         $stmt = $conn->prepare($sql);
         $stmt->bind_param($types, ...$params);
         $stmt->execute();
@@ -84,9 +88,13 @@ if (!empty($selected_services)) {
         });
     }
 } elseif ($show_all_when_no_filter) {
-    $sql = "SELECT id, garage_name, vehicle_types, services_offered, 
-                   latitude, longitude, experience, service_ids
-            FROM mechanics";
+    $sql = "SELECT m.id, m.garage_name, m.vehicle_types, m.services_offered, 
+                   m.latitude, m.longitude, m.experience, m.service_ids,
+                   ROUND(AVG(r.stars), 1) as avg_rating, COUNT(r.id) as rating_count
+            FROM mechanics m
+            LEFT JOIN ratings r ON r.mechanic_id = m.id
+            WHERE m.availability = 1
+            GROUP BY m.id";
     $result = $conn->query($sql);
     while ($row = $result->fetch_assoc()) {
         $row['latitude'] = floatval($row['latitude']);
@@ -106,9 +114,14 @@ while ($row = $catRes->fetch_assoc()) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Driver Dashboard</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <title>Driver Dashboard | MechanicTracer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="/mechanics_tracer/assets/css/ux_enhancements.css">
+    <link rel="stylesheet" href="/mechanics_tracer/assets/css/chat.css">
+    <script>window.LOADER_MANUAL_INIT = true;</script>
+    <script src="/mechanics_tracer/assets/js/ux_enhancements.js"></script>
+    <script src="/mechanics_tracer/assets/js/chat.js"></script>
 <style>
 /* ===== RESET & GLOBAL ===== */
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
@@ -349,6 +362,11 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
 </style>
 </head>
 <body>
+<div id="system-initial-loader">
+    <div class="loader-logo"><i class="fas fa-car" style="margin-right:10px;"></i>MechanicTracer</div>
+    <div class="loader-bar-container"><div class="loader-bar-fill"></div></div>
+    <div style="margin-top:15px; color:#64748b; font-size:0.9rem;">Finding mechanics near you...</div>
+</div>
 <div class="app-wrapper">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
@@ -356,10 +374,10 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
       <p id="driverGreetingSub">Find and book mechanics near you</p>
     </div>
     <nav class="nav-links">
-      <a href="driver_dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-      <a href="profile.php"><i class="fas fa-user"></i> My Profile</a>
-      <a href="../forms/bookings/driver_bookings.php"><i class="fas fa-calendar-check"></i> My Bookings</a>
-      <a href="rate_mechanic.php"><i class="fas fa-star"></i> Ratings</a>
+      <a href="/mechanics_tracer/dashboard/driver_dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+      <a href="/mechanics_tracer/forms/profile/driver_profile.php"><i class="fas fa-user"></i> My Profile</a>
+      <a href="/mechanics_tracer/forms/bookings/driver_bookings.php"><i class="fas fa-calendar-check"></i> My Bookings</a>
+      <a href="/mechanics_tracer/dashboard/rate_mechanic.php"><i class="fas fa-star"></i> Ratings</a>
     </nav>
     <div class="sidebar-footer">
       <a href="../forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -388,7 +406,7 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
           <strong style="color:#92400e;">You have <?php echo $pending_ratings_count; ?> completed job<?php echo $pending_ratings_count === 1 ? '' : 's'; ?> to rate</strong>
           <p style="margin:4px 0 0;font-size:0.9rem;color:#78350f;">Share feedback so other drivers can choose the best mechanics.</p>
         </div>
-        <a href="/mechanics_tracer/dashboard/rate_mechanic.php" class="filter-btn" style="background:#0f172a;color:#f9fafb;border-color:#0f172a;text-decoration:none;">
+        <a href="/mechanics_tracer/forms/bookings/driver_bookings.php" class="filter-btn" style="background:#0f172a;color:#f9fafb;border-color:#0f172a;text-decoration:none;">
           <i class="fas fa-star"></i> Rate now
         </a>
       </div>
@@ -559,7 +577,8 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
         }
         var etaText = `Walk: ${formatETA(mech.etaFoot)} | Boda: ${formatETA(mech.etaBoda)} | Matatu: ${formatETA(mech.etaMatatu)} | Car: ${formatETA(mech.roadDuration)}`;
         var distKm = mech.roadDistance ? mech.roadDistance.toFixed(2) : '—';
-        var popupContent = `<b>${mech.garage_name}</b><br>Services: ${mech.services_offered || ''}<br>Distance: ${distKm} km<br>ETA: ${etaText}<br><div style="margin-top:8px"><button onclick="bookMechanic(${mech.id})" style="background:#1890ff; color:white; border:none; padding:8px 16px; border-radius:999px; cursor:pointer; font-weight:600;">Book Now</button></div>`;
+        var ratingHtml = mech.rating_count > 0 ? `<div style="color:#fbbf24;margin-bottom:4px;"><i class="fas fa-star"></i> ${mech.avg_rating} (${mech.rating_count} reviews)</div>` : `<div style="color:#94a3b8;margin-bottom:4px;font-size:0.9em;">No ratings yet</div>`;
+        var popupContent = `<b>${mech.garage_name}</b><br>${ratingHtml}Services: ${mech.services_offered || ''}<br>Distance: ${distKm} km<br>ETA: ${etaText}<br><div style="margin-top:8px"><button onclick="bookMechanic(${mech.id})" style="background:#1890ff; color:white; border:none; padding:8px 16px; border-radius:999px; cursor:pointer; font-weight:600;">Book Now</button></div>`;
         mech.marker.bindPopup(popupContent);
     }
 
@@ -607,7 +626,8 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
             if (!m.latitude || !m.longitude) return;
             if (m.marker) try { map.removeLayer(m.marker); } catch(e){}
             var marker = L.marker([m.latitude, m.longitude], { icon: mechanicIcon }).addTo(map);
-            marker.bindPopup(`<b>${m.garage_name}</b><br>Services: ${m.services_offered || ''}<br><i>Loading ETA...</i>`);
+            var mRatingHtml = m.rating_count > 0 ? `<div style="color:#fbbf24;margin-bottom:4px;"><i class="fas fa-star"></i> ${m.avg_rating} (${m.rating_count} reviews)</div>` : `<div style="color:#94a3b8;margin-bottom:4px;font-size:0.9em;">No ratings yet</div>`;
+            marker.bindPopup(`<b>${m.garage_name}</b><br>${mRatingHtml}Services: ${m.services_offered || ''}<br><i>Loading ETA...</i>`);
             m.marker = marker;
         });
 
@@ -640,10 +660,12 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
         return worker().then(() => {
             mechanicsLoaded = true;
             fitMapOnce();
+            MT_Loader.hideGlobal();
         }).catch(err => {
             console.warn("Error loading mechanics", err);
             mechanicsLoaded = true;
             fitMapOnce();
+            MT_Loader.hideGlobal();
         });
     }
 
@@ -668,6 +690,15 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
     }
 
     setTimeout(function(){ resizeMap(); }, 300);
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', function(event) {
+        const sidebar = document.getElementById('sidebar');
+        const toggle = document.getElementById('menuToggle');
+        if (window.innerWidth <= 768 && sidebar.classList.contains('open') && !sidebar.contains(event.target) && !toggle.contains(event.target)) {
+            sidebar.classList.remove('open');
+        }
+    });
 </script>
 </body>
 </html>

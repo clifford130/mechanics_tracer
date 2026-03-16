@@ -11,22 +11,52 @@ if ($id < 1) {
 
 // Handle high-level user actions (delete user, remove profiles, toggle availability)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_verify()) {
-    if (isset($_POST['toggle_avail'])) {
-        $stmt = $conn->prepare("UPDATE mechanics SET availability = 1 - availability WHERE user_id = ?");
-        $stmt->bind_param("i", $id);
-        $stmt->execute();
-        if ($stmt->affected_rows) {
-            header('Location: user_view.php?id=' . $id . '&msg=avail');
+    if (isset($_POST['action'])) {
+        $action = $_POST['action'];
+
+        if ($action === 'mark_available') {
+            $stmt = $conn->prepare("UPDATE mechanics SET availability = 1 WHERE user_id = ?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            header('Location: user_view.php?id=' . $id . '&msg=avail_on');
+            exit;
+        } elseif ($action === 'mark_unavailable') {
+            $stmt = $conn->prepare("UPDATE mechanics SET availability = 0 WHERE user_id = ?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            header('Location: user_view.php?id=' . $id . '&msg=avail_off');
+            exit;
+        } elseif ($action === 'suspend_user') {
+            $stmt = $conn->prepare("UPDATE users SET status = 'suspended' WHERE id = ?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            header('Location: user_view.php?id=' . $id . '&msg=suspended');
+            exit;
+        } elseif ($action === 'activate_user') {
+            $stmt = $conn->prepare("UPDATE users SET status = 'active' WHERE id = ?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            header('Location: user_view.php?id=' . $id . '&msg=activated');
             exit;
         }
     } elseif (isset($_POST['user_action'])) {
         $action = $_POST['user_action'];
 
         if ($action === 'delete_user') {
-            $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+            // Soft delete — marks as deleted so data is preserved for audits
+            $stmt = $conn->prepare("UPDATE users SET status = 'deleted' WHERE id = ?");
             $stmt->bind_param("i", $id);
             $stmt->execute();
             header('Location: users.php?msg=deleted_user');
+            exit;
+        }
+
+        if ($action === 'restore_user') {
+            // Restore a previously soft-deleted user to suspended state
+            $stmt = $conn->prepare("UPDATE users SET status = 'suspended' WHERE id = ?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            header('Location: user_view.php?id=' . $id . '&msg=restored');
             exit;
         }
 
@@ -48,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrf_verify()) {
     }
 }
 
-$stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+$stmt = $conn->prepare("SELECT id, full_name, email, phone, role, profile_completed, created_at, status FROM users WHERE id = ?");
 $stmt->bind_param("i", $id);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
@@ -113,14 +143,22 @@ include __DIR__ . '/includes/header.php';
 
 <?php
 $msgKey = $_GET['msg'] ?? '';
-if ($msgKey === 'avail') {
-    $msg = 'Availability updated.';
+if ($msgKey === 'avail_on') {
+    $msg = 'Mechanic marked as Available.';
+} elseif ($msgKey === 'avail_off') {
+    $msg = 'Mechanic marked as Unavailable.';
+} elseif ($msgKey === 'suspended') {
+    $msg = 'User account suspended successfully.';
+} elseif ($msgKey === 'activated') {
+    $msg = 'User account activated successfully.';
+} elseif ($msgKey === 'restored') {
+    $msg = 'User account restored. It is now suspended — activate if needed.';
 } elseif ($msgKey === 'driver_removed') {
     $msg = 'Driver profile removed.';
 } elseif ($msgKey === 'mechanic_removed') {
     $msg = 'Mechanic profile removed.';
 } elseif ($msgKey === 'deleted_user') {
-    $msg = 'User deleted.';
+    $msg = 'User account soft-deleted. Data is preserved for audit purposes.';
 } else {
     $msg = '';
 }
@@ -133,18 +171,49 @@ if ($msgKey === 'avail') {
         <p><span class="badge badge-<?php echo htmlspecialchars($user['role']); ?>"><?php echo htmlspecialchars($user['role']); ?></span></p>
     </div>
     <div class="flex" style="gap:8px;">
-        <?php if ($mechanic): ?>
-        <form method="POST">
+        <?php if (($user['status'] ?? 'active') === 'deleted'): ?>
+            <!-- Deleted user: only show restore option -->
+            <form method="POST" onsubmit="return confirm('Restore this account? It will be set to Suspended.');">
+                <?php echo csrf_field(); ?>
+                <input type="hidden" name="user_action" value="restore_user">
+                <button type="submit" class="btn btn-sm" style="background:#3b82f6; color:white; border:none;"><i class="fas fa-undo"></i> Restore Account</button>
+            </form>
+        <?php elseif (($user['status'] ?? 'active') === 'active'): ?>
+        <form method="POST" onsubmit="return confirm('Suspend this user account?');">
             <?php echo csrf_field(); ?>
-            <input type="hidden" name="toggle_avail" value="1">
-            <button type="submit" class="btn btn-secondary"><i class="fas fa-exchange-alt"></i> Toggle availability</button>
+            <input type="hidden" name="action" value="suspend_user">
+            <button type="submit" class="btn btn-sm" style="background:#ef4444; color:white; border:none;"><i class="fas fa-ban"></i> Suspend</button>
+        </form>
+        <?php else: ?>
+        <form method="POST" onsubmit="return confirm('Activate this user account?');">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="action" value="activate_user">
+            <button type="submit" class="btn btn-sm" style="background:#10b981; color:white; border:none;"><i class="fas fa-check-circle"></i> Activate</button>
         </form>
         <?php endif; ?>
-        <form method="POST" onsubmit="return confirm('Permanently delete this user and all related data?');">
-            <?php echo csrf_field(); ?>
-            <input type="hidden" name="user_action" value="delete_user">
-            <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash-alt"></i> Delete user</button>
-        </form>
+
+        <?php if (in_array(($user['status'] ?? 'active'), ['active', 'suspended'])): ?>
+            <?php if ($mechanic): ?>
+                <?php if ($mechanic['availability']): ?>
+                <form method="POST" onsubmit="return confirm('Mark mechanic as UNAVAILABLE?');">
+                    <?php echo csrf_field(); ?>
+                    <input type="hidden" name="action" value="mark_unavailable">
+                    <button type="submit" class="btn btn-secondary"><i class="fas fa-eye-slash"></i> Set Offline</button>
+                </form>
+                <?php else: ?>
+                <form method="POST" onsubmit="return confirm('Mark mechanic as AVAILABLE?');">
+                    <?php echo csrf_field(); ?>
+                    <input type="hidden" name="action" value="mark_available">
+                    <button type="submit" class="btn btn-secondary"><i class="fas fa-eye"></i> Set Online</button>
+                </form>
+                <?php endif; ?>
+            <?php endif; ?>
+            <form method="POST" onsubmit="return confirm('This will soft-delete the user. All data is preserved for audit. You can restore them later. Proceed?');">
+                <?php echo csrf_field(); ?>
+                <input type="hidden" name="user_action" value="delete_user">
+                <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash-alt"></i> Soft Delete</button>
+            </form>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -158,6 +227,7 @@ if ($msgKey === 'avail') {
         <tr><th>Email</th><td><?php echo htmlspecialchars($user['email']); ?></td></tr>
         <tr><th>Phone</th><td><?php echo htmlspecialchars($user['phone'] ?? '—'); ?></td></tr>
         <tr><th>Role</th><td><span class="badge badge-<?php echo htmlspecialchars($user['role']); ?>"><?php echo htmlspecialchars($user['role']); ?></span></td></tr>
+        <tr><th>Status</th><td><span class="badge <?php echo ($user['status'] ?? 'active') === 'suspended' ? 'badge-cancelled' : 'badge-completed'; ?>"><?php echo ucfirst($user['status'] ?? 'active'); ?></span></td></tr>
         <tr><th>Profile completed</th><td><?php echo ($user['profile_completed'] ?? 0) ? 'Yes' : 'No'; ?></td></tr>
         <tr><th>Joined</th><td><?php echo date('F j, Y H:i', strtotime($user['created_at'])); ?></td></tr>
     </table>

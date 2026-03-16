@@ -96,12 +96,14 @@ else $greeting = "Good evening";
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mechanic Dashboard | Mechanics Tracer</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-    <!-- Font Awesome -->
+    <title>Mechanic Dashboard | MechanicTracer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="/mechanics_tracer/assets/css/ux_enhancements.css">
+    <link rel="stylesheet" href="/mechanics_tracer/assets/css/chat.css">
+    <script>window.LOADER_MANUAL_INIT = true;</script>
+    <script src="/mechanics_tracer/assets/js/ux_enhancements.js"></script>
+    <script src="/mechanics_tracer/assets/js/chat.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background: #f4f6f8; display: flex; flex-direction: column; min-height: 100vh; }
@@ -262,23 +264,100 @@ else $greeting = "Good evening";
         .card.completed .card-right { background: #dbeafe; color: #1e40af; }
         .card.cancelled .card-right { background: #fee2e2; color: #b91c1c; }
         
-        /* Booking cards */
-        .booking {
-            padding: 18px 20px;
-            margin-bottom: 15px;
-            border-radius: 16px;
-            background: #fff;
-            border: 1px solid #e9edf2;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            transition: 0.2s;
+        /* Booking section grid */
+        .booking-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+            padding: 10px 0;
         }
-        .booking:hover { border-color: #cbd5e1; }
-        .booking-info { flex: 1 1 60%; min-width: 250px; }
-        .booking-info p { margin: 6px 0; color: #1e293b; font-size: 0.95rem; }
+
+        /* Booking cards (Redesigned) */
+        .booking {
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 16px;
+            border: 1px solid #e1e7ef;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+            height: 100%;
+        }
+        .booking:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-color: #cbd5e1;
+        }
+        .booking-info {
+            padding: 24px;
+            flex-grow: 1;
+        }
+        .booking-info p {
+            margin: 10px 0;
+            color: #475569;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .booking-info p i { width: 16px; color: #1890ff; opacity: 0.7; }
+        .booking-info p strong {
+            color: #0f172a;
+            min-width: 80px;
+        }
+        .booking-info .status-badge {
+            margin-top: 15px;
+            display: inline-flex;
+        }
+        
+        .actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1px;
+            background: #e1e7ef;
+            border-top: 1px solid #e1e7ef;
+        }
+        .actions button {
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 14px !important;
+            font-size: 0.85rem !important;
+            font-weight: 600 !important;
+            background: #fff !important;
+            color: #475569 !important;
+            width: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 8px !important;
+            transition: background 0.2s !important;
+            cursor: pointer;
+        }
+        .actions button:hover {
+            background: #f8fafc !important;
+            color: #0f172a !important;
+        }
+        .actions button.accept { color: #10b981 !important; }
+        .actions button.complete { color: #3b82f6 !important; }
+        .actions button.cancel { color: #ef4444 !important; }
+        .actions button.chat-icon { color: #6366f1 !important; }
+        .actions button.view-location { 
+            grid-column: span 2;
+            background: #f8fafc !important;
+            color: #0f172a !important;
+        }
+
+        .no-bookings {
+            grid-column: 1 / -1;
+            padding: 40px;
+            text-align: center;
+            background: #f8fafc;
+            border-radius: 16px;
+            border: 2px dashed #e2e8f0;
+            color: #64748b;
+        }
+
         .status {
             font-weight: 600;
             padding: 4px 12px;
@@ -292,33 +371,6 @@ else $greeting = "Good evening";
         .status.accepted { background: #10b981; }
         .status.completed { background: #3b82f6; }
         .status.cancelled { background: #ef4444; }
-        
-        .actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            flex: 1 1 30%;
-            min-width: 200px;
-        }
-        button, .chat-icon, .view-location {
-            padding: 8px 14px;
-            border: none;
-            border-radius: 30px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            transition: 0.15s;
-        }
-        .accept { background: #10b981; color: white; }
-        .complete { background: #3b82f6; color: white; }
-        .cancel { background: #ef4444; color: white; }
-        .chat-icon { background: #2563eb; color: white; }
-        .view-location { background: #f59e0b; color: white; }
-        button:hover, .chat-icon:hover, .view-location:hover { filter: brightness(0.9); transform: translateY(-1px); }
         
         /* Map Modal */
         .modal {
@@ -407,9 +459,55 @@ else $greeting = "Good evening";
             .booking { flex-direction: column; align-items: flex-start; }
             .actions { justify-content: flex-start; width: 100%; }
         }
+
+        /* Toggle Switch Style */
+        .status-toggle {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #fff;
+            padding: 8px 16px;
+            border-radius: 99px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #cbd5e1;
+            transition: .3s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px; width: 18px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #10b981; }
+        input:checked + .slider:before { transform: translateX(20px); }
+        .status-label { font-size: 0.9rem; font-weight: 600; color: #475569; }
+        .status-online { color: #10b981; }
+        .status-offline { color: #ef4444; }
     </style>
 </head>
 <body>
+<div id="system-initial-loader">
+    <div class="loader-logo"><i class="fas fa-wrench" style="margin-right:10px;"></i>MechanicTracer</div>
+    <div class="loader-bar-container"><div class="loader-bar-fill"></div></div>
+    <div style="margin-top:15px; color:#64748b; font-size:0.9rem;">Opening your dashboard...</div>
+</div>
 <div class="app-wrapper">
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
@@ -418,10 +516,10 @@ else $greeting = "Good evening";
             <p><?php echo htmlspecialchars($greeting . ', ' . explode(' ', $mechanic_name)[0]); ?></p>
         </div>
         <nav class="nav-links">
-            <a href="#" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-            <a href="bookings.php"><i class="fas fa-calendar-check"></i> Bookings</a>
-            <a href="profile.php"><i class="fas fa-user-cog"></i> Profile</a>
-            <a href="settings.php"><i class="fas fa-sliders-h"></i> Settings</a>
+            <a href="/mechanics_tracer/dashboard/mechanic_dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a href="/mechanics_tracer/dashboard/mechanic_dashboard.php#bookings"><i class="fas fa-calendar-check"></i> Bookings</a>
+            <a href="/mechanics_tracer/dashboard/mechanic_ratings.php"><i class="fas fa-star"></i> My Ratings</a>
+            <a href="/mechanics_tracer/forms/profile/mechanic_profile.php"><i class="fas fa-user-cog"></i> Profile</a>
         </nav>
         <div class="sidebar-footer">
             <a href="/mechanics_tracer/forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -434,11 +532,30 @@ else $greeting = "Good evening";
         <div class="top-bar">
             <div class="greeting">
                 <h1><?php echo $greeting; ?>, <?php echo htmlspecialchars($mechanic_name); ?> 👋</h1>
-                <p>Here's what's happening with your bookings today.</p>
+                <p>Welcome back! Set your status to appear on driver's maps.</p>
             </div>
-            <button class="menu-toggle" id="menuToggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
-                <i class="fas fa-bars"></i>
-            </button>
+            
+            <div class="flex" style="gap:15px; align-items:center;">
+                <!-- Refresh Button -->
+                <button class="btn btn-secondary no-loader" onclick="reloadBookings()" title="Refresh Bookings" style="padding: 8px 12px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+
+                <!-- Availability Toggle -->
+                <div class="status-toggle">
+                    <span id="statusText" class="status-label <?php echo $mechanic['availability'] ? 'status-online' : 'status-offline'; ?>">
+                        <?php echo $mechanic['availability'] ? 'ONLINE' : 'OFFLINE'; ?>
+                    </span>
+                    <label class="switch">
+                        <input type="checkbox" id="availabilityToggle" <?php echo $mechanic['availability'] ? 'checked' : ''; ?>>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <button class="menu-toggle" id="menuToggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
         </div>
 
         <!-- Clickable Stats Cards (now also navigation) -->
@@ -473,66 +590,78 @@ else $greeting = "Good evening";
             </div>
         </div>
 
-        <?php if ($ratingSummary && (int)$ratingSummary['cnt'] > 0): ?>
-        <div class="card" id="ratings" style="margin-bottom:24px;">
-            <div>
-                <h2 style="font-size:1.1rem;margin-bottom:8px;color:#0f172a;">Your rating</h2>
-                <p style="margin-bottom:6px;">
-                    <span style="color:#fbbf24;font-size:1.1rem;">
-                        <?php
-                        $rounded = (int)round($ratingSummary['avg_stars']);
-                        echo str_repeat('★', $rounded) . str_repeat('☆', 5 - $rounded);
-                        ?>
-                    </span>
-                    <?php echo number_format((float)$ratingSummary['avg_stars'], 1); ?>
-                    <span style="color:#64748b;">(<?php echo (int)$ratingSummary['cnt']; ?> ratings)</span>
-                </p>
-                <?php if (!empty($recentRatings)): ?>
-                    <ul style="margin-top:8px;list-style:none;padding-left:0;">
-                        <?php foreach ($recentRatings as $r): ?>
-                            <li style="margin-bottom:6px;">
-                                <strong><?php echo htmlspecialchars($r['driver_name']); ?></strong>
-                                <span style="color:#fbbf24;margin-left:4px;"><?php echo str_repeat('★', (int)$r['stars']); ?></span>
-                                <?php if (!empty($r['review'])): ?>
-                                    <br><span style="color:#4b5563;"><?php echo htmlspecialchars(mb_strimwidth($r['review'], 0, 80, '…')); ?></span>
-                                <?php endif; ?>
-                            </li>
-                        <?php endforeach; ?>
-                    </ul>
-                <?php endif; ?>
-            </div>
-        </div>
-        <?php endif; ?>
-
         <!-- Notification popup -->
         <div id="popup">Message</div>
 
-        <!-- Booking sections (no separate tabs) -->
-        <div id="pending" class="booking-section">
-            <?php
-            if(empty($pending)) echo "<p>No pending bookings.</p>";
-            else renderBooking($pending, $mechanic_lat, $mechanic_lng);
-            ?>
+        <div class="card" id="bookings-card" style="padding: 0; background: transparent; border: none; box-shadow: none;">
+            <!-- Booking sections (bookings FIRST) -->
+            <div id="bookings-section-wrapper" class="loading-container" style="min-height: 200px;">
+                <div id="bookings" style="scroll-margin-top: 20px;">
+                    <div id="pending" class="booking-section">
+                        <?php
+                        if(empty($pending)) echo "<div class='no-bookings'><i class='fas fa-inbox' style='font-size:2rem;margin-bottom:10px;display:block;'></i>No pending bookings.</div>";
+                        else renderBooking($pending, $mechanic_lat, $mechanic_lng);
+                        ?>
+                    </div>
+                    <div id="active" class="booking-section" style="display:none;">
+                        <?php
+                        if(empty($active)) echo "<div class='no-bookings'><i class='fas fa-inbox' style='font-size:2rem;margin-bottom:10px;display:block;'></i>No active bookings.</div>";
+                        else renderBooking($active, $mechanic_lat, $mechanic_lng);
+                        ?>
+                    </div>
+                    <div id="completed" class="booking-section" style="display:none;">
+                        <?php
+                        if(empty($completed)) echo "<div class='no-bookings'><i class='fas fa-inbox' style='font-size:2rem;margin-bottom:10px;display:block;'></i>No completed bookings.</div>";
+                        else renderBooking($completed, $mechanic_lat, $mechanic_lng);
+                        ?>
+                    </div>
+                    <div id="cancelled" class="booking-section" style="display:none;">
+                        <?php
+                        if(empty($cancelled)) echo "<div class='no-bookings'><i class='fas fa-inbox' style='font-size:2rem;margin-bottom:10px;display:block;'></i>No cancelled bookings.</div>";
+                        else renderBooking($cancelled, $mechanic_lat, $mechanic_lng);
+                        ?>
+                    </div>
+                </div><!-- /#bookings -->
+            </div><!-- /#bookings-section-wrapper -->
         </div>
-        <div id="active" class="booking-section" style="display:none;">
-            <?php
-            if(empty($active)) echo "<p>No active bookings.</p>";
-            else renderBooking($active, $mechanic_lat, $mechanic_lng);
-            ?>
+
+        <!-- Ratings summary (BELOW bookings) -->
+        <?php if ($ratingSummary && (int)$ratingSummary['cnt'] > 0): ?>
+        <div class="card" id="ratings" style="margin-top:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <h2 style="font-size:1.1rem;color:#0f172a;margin:0;">Your Ratings</h2>
+                <a href="/mechanics_tracer/dashboard/mechanic_ratings.php" style="font-size:0.85rem;color:#3b82f6;text-decoration:none;">View all &rarr;</a>
+            </div>
+            <p style="margin-bottom:6px;">
+                <span style="color:#fbbf24;font-size:1.1rem;">
+                    <?php
+                    $rounded = (int)round($ratingSummary['avg_stars']);
+                    echo str_repeat('★', $rounded) . str_repeat('☆', 5 - $rounded);
+                    ?>
+                </span>
+                <?php echo number_format((float)$ratingSummary['avg_stars'], 1); ?>
+                <span style="color:#64748b;">(<?php echo (int)$ratingSummary['cnt']; ?> ratings)</span>
+            </p>
+            <?php if (!empty($recentRatings)): ?>
+                <ul style="margin-top:8px;list-style:none;padding-left:0;">
+                    <?php foreach ($recentRatings as $r): ?>
+                        <li style="margin-bottom:6px;">
+                            <strong><?php echo htmlspecialchars($r['driver_name']); ?></strong>
+                            <span style="color:#fbbf24;margin-left:4px;"><?php echo str_repeat('★', (int)$r['stars']); ?></span>
+                            <?php if (!empty($r['review'])): ?>
+                                <br><span style="color:#4b5563;"><?php echo htmlspecialchars(mb_strimwidth($r['review'], 0, 80, '…')); ?></span>
+                            <?php endif; ?>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
         </div>
-        <div id="completed" class="booking-section" style="display:none;">
-            <?php
-            if(empty($completed)) echo "<p>No completed bookings.</p>";
-            else renderBooking($completed, $mechanic_lat, $mechanic_lng);
-            ?>
+        <?php else: ?>
+        <div class="card" id="ratings" style="margin-top:24px;padding:20px;text-align:center;color:#64748b;">
+            <i class="fas fa-star" style="font-size:2rem;color:#e2e8f0;margin-bottom:10px;"></i>
+            <p style="margin:0;">No ratings yet. Completed jobs will show up here.</p>
         </div>
-        <div id="cancelled" class="booking-section" style="display:none;">
-            <?php
-            if(empty($cancelled)) echo "<p>No cancelled bookings.</p>";
-            else renderBooking($cancelled, $mechanic_lat, $mechanic_lng);
-            ?>
-        </div>
-    </main>
+        <?php endif; ?>
 </div>
 
 <!-- Map Modal -->
@@ -549,6 +678,47 @@ else $greeting = "Good evening";
 <!-- Leaflet & JavaScript -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
+    // ---------- Availability Toggle ----------
+    document.getElementById('availabilityToggle').addEventListener('change', function(e) {
+        const isOnline = e.target.checked;
+        const statusText = document.getElementById('statusText');
+        
+        statusText.textContent = isOnline ? 'ONLINE' : 'OFFLINE';
+        statusText.className = 'status-label ' + (isOnline ? 'status-online' : 'status-offline');
+        
+        const formData = new FormData();
+        formData.append('availability', isOnline ? 1 : 0);
+        
+        fetch('/mechanics_tracer/dashboard/api/mechanic_status.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Optional: show a small toast
+                console.log('Status updated to ' + (isOnline ? 'online' : 'offline'));
+            } else {
+                alert('Failed to update status. Please try again.');
+                // revert toggle
+                e.target.checked = !isOnline;
+                statusText.textContent = (!isOnline) ? 'ONLINE' : 'OFFLINE';
+                statusText.className = 'status-label ' + ((!isOnline) ? 'status-online' : 'status-offline');
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            alert('A connection error occurred.');
+            e.target.checked = !isOnline;
+        });
+    });
+
+    // Initialize Chat
+    MT_Chat.init(<?php echo $_SESSION['user_id']; ?>);
+
+    // Hide global splash after initial check
+    setTimeout(() => MT_Loader.hideGlobal(), 1000);
+
     // Close sidebar when clicking outside on mobile
     document.addEventListener('click', function(event) {
         const sidebar = document.getElementById('sidebar');
@@ -684,18 +854,36 @@ else $greeting = "Good evening";
 
             const distKm = (best.distance / 1000).toFixed(2);
             const durationMin = Math.round(best.duration / 60);
-            const info = L.control({ position: 'topright' });
-            info.onAdd = function () {
-                const d = L.DomUtil.create('div');
-                d.style.background = 'rgba(255,255,255,0.95)';
-                d.style.padding = '8px';
-                d.style.borderRadius = '6px';
-                d.style.boxShadow = '0 2px 6px rgba(0,0,0,0.12)';
-                d.innerHTML = `<strong>Shortest route</strong><br>Distance: ${distKm} km<br>ETA: ${durationMin} min`;
-                return d;
-            };
-            info.addTo(map);
-            currentInfoControl = info;
+            const info = document.createElement('div');
+            info.id = 'map-eta-overlay';
+            info.style.position = 'absolute';
+            info.style.top = '10px';
+            info.style.left = '50%';
+            info.style.transform = 'translateX(-50%)';
+            info.style.zIndex = '1000';
+            info.style.background = '#0f172a';
+            info.style.color = '#fff';
+            info.style.padding = '10px 20px';
+            info.style.borderRadius = '99px';
+            info.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+            info.style.display = 'flex';
+            info.style.alignItems = 'center';
+            info.style.gap = '15px';
+            info.style.fontSize = '0.95rem';
+            info.style.fontWeight = '600';
+            info.style.pointerEvents = 'none';
+            info.style.whiteSpace = 'nowrap';
+            
+            info.innerHTML = `
+                <div style="display:flex; align-items:center; gap:6px;"><i class="fas fa-road" style="color:#94a3b8;"></i> ${distKm} km</div>
+                <div style="width:1px; height:20px; background:rgba(255,255,255,0.2);"></div>
+                <div style="display:flex; align-items:center; gap:6px;"><i class="fas fa-clock" style="color:#3b82f6;"></i> ETA: <span style="color:#3b82f6; font-size:1.1rem;">${durationMin} min</span></div>
+            `;
+            
+            const mapContainer = document.getElementById('map');
+            const oldInfo = document.getElementById('map-eta-overlay');
+            if (oldInfo) oldInfo.remove();
+            mapContainer.appendChild(info);
         } catch (err) {
             console.error('Routing failed', err);
             const group = L.featureGroup([mechMarker, driverMarker]);
@@ -764,6 +952,8 @@ else $greeting = "Good evening";
     function reloadBookings() {
         if(reloadInProgress) return;
         reloadInProgress = true;
+        
+        MT_Loader.showSection('bookings-section-wrapper');
 
         // Remember which card is active
         const activeCard = document.querySelector('.card.active');
@@ -807,10 +997,12 @@ else $greeting = "Good evening";
                 document.getElementById('pending').style.display = 'block';
             }
 
+            MT_Loader.hideSection('bookings-section-wrapper');
             reloadInProgress = false;
         })
         .catch(err => {
             console.error('reloadBookings error', err);
+            MT_Loader.hideSection('bookings-section-wrapper');
             reloadInProgress = false;
         });
     }
@@ -829,11 +1021,13 @@ function renderBooking($bookings, $mechanic_lat, $mechanic_lng) {
         ?>
         <div class="booking" id="booking-<?php echo $b['id']; ?>">
             <div class="booking-info">
-                <p><strong>Driver:</strong> <?php echo htmlspecialchars($b['driver_name']); ?></p>
-                <p><strong>Vehicle:</strong> <?php echo htmlspecialchars($b['driver_vehicle_type'] . ' - ' . $vehicle); ?></p>
-                <p><strong>Service:</strong> <?php echo htmlspecialchars($b['service_requested']); ?></p>
-                <p><strong>Booked On:</strong> <?php echo htmlspecialchars($b['created_at']); ?></p>
-                <p class="status <?php echo $b['booking_status']; ?>"><?php echo ucfirst($b['booking_status']); ?></p>
+                <p><strong><i class="fas fa-user"></i> Driver</strong> <?php echo htmlspecialchars($b['driver_name']); ?></p>
+                <p><strong><i class="fas fa-car"></i> Vehicle</strong> <?php echo htmlspecialchars($b['driver_vehicle_type'] . ' - ' . $vehicle); ?></p>
+                <p><strong><i class="fas fa-tools"></i> Service</strong> <?php echo htmlspecialchars($b['service_requested']); ?></p>
+                <p><strong><i class="fas fa-clock"></i> Booked</strong> <?php echo htmlspecialchars($b['created_at']); ?></p>
+                <div class="status-badge">
+                    <span class="status <?php echo $b['booking_status']; ?>"><?php echo ucfirst($b['booking_status']); ?></span>
+                </div>
             </div>
             <div class="actions">
                 <?php if($b['booking_status']=='pending'): ?>
@@ -841,8 +1035,11 @@ function renderBooking($bookings, $mechanic_lat, $mechanic_lng) {
                     <button class="cancel" onclick="cancelBooking(<?php echo $b['id']; ?>)"><i class="fas fa-times"></i> Cancel</button>
                 <?php elseif($b['booking_status']=='accepted'): ?>
                     <button class="complete" onclick="completeBooking(<?php echo $b['id']; ?>)"><i class="fas fa-flag-checkered"></i> Complete</button>
+                    <button class="chat-icon" onclick="MT_Chat.open(<?php echo $b['id']; ?>, '<?php echo addslashes($b['driver_name']); ?>')"><i class="fas fa-comment"></i> Chat</button>
+                <?php else: ?>
+                    <button class="chat-icon" style="grid-column: span 2;" onclick="MT_Chat.open(<?php echo $b['id']; ?>, '<?php echo addslashes($b['driver_name']); ?>')"><i class="fas fa-comment"></i> Chat</button>
                 <?php endif; ?>
-                <button class="chat-icon" title="Chat with driver"><i class="fas fa-comment"></i></button>
+                
                 <button class="view-location" onclick="openMapModal(
                     <?php echo $mechanic_lat; ?>,
                     <?php echo $mechanic_lng; ?>,

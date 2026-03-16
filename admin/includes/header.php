@@ -19,6 +19,9 @@ if (isset($conn)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?> | Admin MechanicTracer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="/mechanics_tracer/assets/css/ux_enhancements.css">
+    <script>window.LOADER_MANUAL_INIT = true;</script>
+    <script src="/mechanics_tracer/assets/js/ux_enhancements.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background: #f4f6f8; min-height: 100vh; }
@@ -93,6 +96,11 @@ if (isset($conn)) {
     </style>
 </head>
 <body>
+<div id="system-initial-loader">
+    <div class="loader-logo"><i class="fas fa-shield-alt" style="margin-right:10px;"></i>Admin Panel</div>
+    <div class="loader-bar-container"><div class="loader-bar-fill"></div></div>
+    <div style="margin-top:15px; color:#64748b; font-size:0.9rem;">Opening administration console...</div>
+</div>
 <div class="app-wrapper">
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
