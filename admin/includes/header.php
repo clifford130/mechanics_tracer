@@ -96,11 +96,7 @@ if (isset($conn)) {
     </style>
 </head>
 <body>
-<div id="system-initial-loader">
-    <div class="loader-logo"><i class="fas fa-shield-alt" style="margin-right:10px;"></i>Admin Panel</div>
-    <div class="loader-bar-container"><div class="loader-bar-fill"></div></div>
-    <div style="margin-top:15px; color:#64748b; font-size:0.9rem;">Opening administration console...</div>
-</div>
+
 <div class="app-wrapper">
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">

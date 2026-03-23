@@ -80,8 +80,4 @@ include __DIR__ . '/includes/header.php';
 </div>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => MT_Loader.hideGlobal(), 800);
-    });
-</script>
+

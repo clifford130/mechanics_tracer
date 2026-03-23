@@ -362,11 +362,7 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
 </style>
 </head>
 <body>
-<div id="system-initial-loader">
-    <div class="loader-logo"><i class="fas fa-car" style="margin-right:10px;"></i>MechanicTracer</div>
-    <div class="loader-bar-container"><div class="loader-bar-fill"></div></div>
-    <div style="margin-top:15px; color:#64748b; font-size:0.9rem;">Finding mechanics near you...</div>
-</div>
+
 <div class="app-wrapper">
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
@@ -660,12 +656,12 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
         return worker().then(() => {
             mechanicsLoaded = true;
             fitMapOnce();
-            MT_Loader.hideGlobal();
+
         }).catch(err => {
             console.warn("Error loading mechanics", err);
             mechanicsLoaded = true;
             fitMapOnce();
-            MT_Loader.hideGlobal();
+
         });
     }
 

@@ -503,11 +503,7 @@ else $greeting = "Good evening";
     </style>
 </head>
 <body>
-<div id="system-initial-loader">
-    <div class="loader-logo"><i class="fas fa-wrench" style="margin-right:10px;"></i>MechanicTracer</div>
-    <div class="loader-bar-container"><div class="loader-bar-fill"></div></div>
-    <div style="margin-top:15px; color:#64748b; font-size:0.9rem;">Opening your dashboard...</div>
-</div>
+
 <div class="app-wrapper">
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
@@ -716,8 +712,7 @@ else $greeting = "Good evening";
     // Initialize Chat
     MT_Chat.init(<?php echo $_SESSION['user_id']; ?>);
 
-    // Hide global splash after initial check
-    setTimeout(() => MT_Loader.hideGlobal(), 1000);
+
 
     // Close sidebar when clicking outside on mobile
     document.addEventListener('click', function(event) {

@@ -187,11 +187,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 </head>
 <body>
 
-<div id="system-initial-loader">
-    <div class="loader-logo"><i class="fas fa-wrench" style="margin-right:10px;"></i>MechanicTracer</div>
-    <div class="loader-bar-container"><div class="loader-bar-fill"></div></div>
-    <div style="margin-top:15px; color:#64748b; font-size:0.9rem;">Starting system...</div>
-</div>
 
 <div class="auth-container">
   <div class="auth-card">
@@ -214,7 +209,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     </div>
   <?php endif; ?>
 
-    <form action="signup.php" method="POST" onsubmit="MT_Loader.showButton(this.querySelector('button[type=submit]'))">
+    <form action="signup.php" method="POST">
       <input type="text" name="full_name" placeholder="Full Name" value="<?= $_POST['full_name'] ?? '' ?>" required>
       <input type="email" name="email" placeholder="Email" value="<?= $_POST['email'] ?? '' ?>" required>
       <input type="text" name="phone" placeholder="Phone Number" value="<?= $_POST['phone'] ?? '' ?>" required>
