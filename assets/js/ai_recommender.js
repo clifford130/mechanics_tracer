@@ -36,6 +36,38 @@ const AIRecommender = {
             </div>
         `;
         document.body.appendChild(panel);
+        this.loadHistory();
+    },
+
+    loadHistory() {
+        const saved = sessionStorage.getItem('aiChatHistory');
+        if (saved) {
+            const container = document.getElementById('aiChatMessages');
+            container.innerHTML = saved;
+            // Ensure no typing indicator was accidentally saved
+            const typing = document.getElementById('aiTypingIndicator');
+            if (typing) typing.remove();
+        }
+    },
+
+    saveHistory() {
+        // Remove typing indicator temporarily if present so it's not saved
+        const typing = document.getElementById('aiTypingIndicator');
+        let tempHtml = "";
+        if (typing) {
+            tempHtml = typing.outerHTML;
+            typing.remove();
+        }
+        
+        const container = document.getElementById('aiChatMessages');
+        if (container) {
+            sessionStorage.setItem('aiChatHistory', container.innerHTML);
+        }
+        
+        // Restore typing indicator if it was there
+        if (typing && container) {
+            container.insertAdjacentHTML('beforeend', tempHtml);
+        }
     },
 
     togglePanel() {
@@ -58,6 +90,7 @@ const AIRecommender = {
         }
         
         container.appendChild(msg);
+        this.saveHistory();
         this.scrollToBottom();
         return msg;
     },
@@ -237,6 +270,7 @@ const AIRecommender = {
                     </div>
                     <p style="margin:6px 0 0 0; font-size:0.85rem; color:#047857;">The mechanic has received your request regarding "<span style="font-style:italic;">${problem}</span>". Check "My Bookings" for updates.</p>
                 `;
+                this.saveHistory();
             } else {
                 if (btnRow) {
                     btnRow.innerHTML = `<span style="font-size:0.85rem; color:#ef4444;"><i class="fas fa-exclamation-circle"></i> ${data.message}</span>`;
