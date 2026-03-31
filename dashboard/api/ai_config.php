@@ -43,5 +43,5 @@ if (file_exists($envPath)) {
 }
 
 define('AI_API_KEY', $api_key);
-define('AI_MODEL', 'gemini-1.5-flash'); // Using Google Gemini API
+define('AI_MODEL', 'gemini-2.5-flash'); // Using Google Gemini API
 ?>

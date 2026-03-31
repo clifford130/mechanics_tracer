@@ -40,7 +40,7 @@ function extractServiceIDs($problem_text, $services_list) {
         ],
         "generationConfig" => [
             "temperature" => 0.1,
-            "maxOutputTokens" => 150
+            "maxOutputTokens" => 1000
         ]
     ];
 
