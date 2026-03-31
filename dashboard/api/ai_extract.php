@@ -79,15 +79,13 @@ function extractServiceIDs($problem_text, $services_list) {
 
     $content = trim($decoded['candidates'][0]['content']['parts'][0]['text']);
     
-    // Attempt to extract json array if there is any markdown backticks
-    if (preg_match('/\[.*\]/s', $content, $matches)) {
-        $content = $matches[0];
-    }
+    // Instead of relying on a perfect JSON parse which Gemini is truncating,
+    // let's robustly extract all integers found inside the brackets explicitly.
+    preg_match_all('/\d+/', $content, $matches);
+    $result_ids = isset($matches[0]) ? $matches[0] : [];
 
-    $result_ids = json_decode($content, true);
-
-    if (json_last_error() !== JSON_ERROR_NONE || !is_array($result_ids)) {
-        return ['success' => false, 'message' => "Failed to parse AI output as JSON array. Raw: " . substr($content, 0, 200)];
+    if (empty($result_ids)) {
+        return ['success' => false, 'message' => "Failed to find any service IDs in AI output. Raw: " . substr($content, 0, 200)];
     }
 
     // Validate the IDs
