@@ -119,9 +119,11 @@ while ($row = $catRes->fetch_assoc()) {
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="/mechanics_tracer/assets/css/ux_enhancements.css">
     <link rel="stylesheet" href="/mechanics_tracer/assets/css/chat.css">
+    <link rel="stylesheet" href="/mechanics_tracer/assets/css/ai_recommender.css">
     <script>window.LOADER_MANUAL_INIT = true;</script>
     <script src="/mechanics_tracer/assets/js/ux_enhancements.js"></script>
     <script src="/mechanics_tracer/assets/js/chat.js"></script>
+    <script src="/mechanics_tracer/assets/js/ai_recommender.js"></script>
 <style>
 /* ===== RESET & GLOBAL ===== */
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
@@ -686,6 +688,9 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
     }
 
     setTimeout(function(){ resizeMap(); }, 300);
+
+    // Initialize AI Assistant
+    AIRecommender.init();
 
     // Close sidebar when clicking outside on mobile
     document.addEventListener('click', function(event) {

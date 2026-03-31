@@ -18,7 +18,7 @@ define("DASHBOARD_PATH", $_SERVER['DOCUMENT_ROOT'] . "/mechanics_tracer/dashboar
 define("ADMIN_URL", BASE_URL . "admin/");
 
 $host = "localhost";
-$db_name = "mechanic_tracer"; // use your database name
+$db_name = "mechanics_tracer"; // use your database name
 $username = "root";          // your DB username
 $password = "";              // your DB password
 
