@@ -1,5 +1,10 @@
 <?php
-// /new/forms/auth/logout.php
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 session_start();                 // start the session
 $_SESSION = array();             // clear all session variables
@@ -16,6 +21,6 @@ if (ini_get("session.use_cookies")) {
 session_destroy();               // destroy the session
 
 // Redirect to login page
-header("Location: /mechanics_tracer/forms/auth/login.php");
+header("Location: " . BASE_URL . "forms/auth/login.php");
 exit;
 ?>

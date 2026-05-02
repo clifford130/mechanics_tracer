@@ -1,10 +1,15 @@
 <?php
 session_start();
-require_once("../config.php");
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 // Only drivers can access
 if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'driver'){
-    header("Location: ../auth/login.php");
+    header("Location: " . FORMS_URL . "auth/login.php");
     exit();
 }
 
@@ -72,7 +77,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
         if($stmt->affected_rows > 0){
             $booking_id = $stmt->insert_id;
             // Adjust chat.php path if needed
-            header("Location: /mechanics_tracer/forms/bookings/driver_bookings.php?booking_id=".$booking_id);
+            header("Location: /<?php echo BASE_URL; ?>forms/bookings/driver_bookings.php?booking_id=".$booking_id);
             exit();
         } else {
             $error = "Failed to create booking. Please try again.";
@@ -346,12 +351,12 @@ $mechanic_services = explode(",", $mechanic['services_offered']);
             <p>Booking with <?php echo htmlspecialchars($mechanic['garage_name']); ?></p>
         </div>
         <nav class="nav-links">
-            <a href="/mechanics_tracer/dashboard/driver_dashboard.php"><i class="fas fa-map"></i> Map & mechanics</a>
-            <a href="/mechanics_tracer/forms/bookings/driver_bookings.php"><i class="fas fa-calendar-check"></i> My bookings</a>
-            <a href="/mechanics_tracer/forms/profile/driver_profile.php"><i class="fas fa-user"></i> My profile</a>
+            <a href="<?php echo BASE_URL; ?>dashboard/driver_dashboard.php"><i class="fas fa-map"></i> Map & mechanics</a>
+            <a href="<?php echo BASE_URL; ?>forms/bookings/driver_bookings.php"><i class="fas fa-calendar-check"></i> My bookings</a>
+            <a href="<?php echo BASE_URL; ?>forms/profile/driver_profile.php"><i class="fas fa-user"></i> My profile</a>
         </nav>
         <div class="sidebar-footer">
-            <a href="/mechanics_tracer/forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            <a href="<?php echo BASE_URL; ?>forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
     </aside>
 
@@ -363,10 +368,10 @@ $mechanic_services = explode(",", $mechanic['services_offered']);
                 <p>Review details, choose services, then send the booking.</p>
             </div>
             <div class="quick-actions">
-                <a href="/mechanics_tracer/dashboard/driver_dashboard.php" class="qa-btn">
+                <a href="<?php echo BASE_URL; ?>dashboard/driver_dashboard.php" class="qa-btn">
                     <i class="fas fa-map-marked-alt"></i> Back to map
                 </a>
-                <a href="/mechanics_tracer/forms/bookings/driver_bookings.php" class="qa-btn">
+                <a href="<?php echo BASE_URL; ?>forms/bookings/driver_bookings.php" class="qa-btn">
                     <i class="fas fa-list-ul"></i> View my bookings
                 </a>
             </div>

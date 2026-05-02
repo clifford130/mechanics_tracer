@@ -1,9 +1,14 @@
 <?php
 session_start();
-require_once($_SERVER['DOCUMENT_ROOT'] . "/mechanics_tracer/forms/config.php");
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'mechanic'){
-    header("Location: /mechanics_tracer/forms/auth/login.php");
+    header("Location: " . BASE_URL . "forms/auth/login.php");
     exit();
 }
 
@@ -112,13 +117,13 @@ if ($rt && $rt->num_rows) {
             <p>Mechanic Profile</p>
         </div>
         <nav class="nav-links">
-            <a href="/mechanics_tracer/dashboard/mechanic_dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-            <a href="/mechanics_tracer/dashboard/mechanic_dashboard.php#bookings"><i class="fas fa-calendar-check"></i> Bookings</a>
-            <a href="/mechanics_tracer/dashboard/mechanic_ratings.php" class="active"><i class="fas fa-star"></i> My Ratings</a>
-            <a href="/mechanics_tracer/forms/profile/mechanic_profile.php"><i class="fas fa-user-cog"></i> Profile</a>
+            <a href="<?php echo BASE_URL; ?>dashboard/mechanic_dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a href="<?php echo BASE_URL; ?>dashboard/mechanic_dashboard.php#bookings"><i class="fas fa-calendar-check"></i> Bookings</a>
+            <a href="<?php echo BASE_URL; ?>dashboard/mechanic_ratings.php" class="active"><i class="fas fa-star"></i> My Ratings</a>
+            <a href="<?php echo BASE_URL; ?>forms/profile/mechanic_profile.php"><i class="fas fa-user-cog"></i> Profile</a>
         </nav>
         <div class="sidebar-footer">
-            <a href="/mechanics_tracer/forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            <a href="<?php echo BASE_URL; ?>forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
     </aside>
 
@@ -205,6 +210,6 @@ document.addEventListener('click', function(e) {
     }
 });
 </script>
-<script src="/mechanics_tracer/assets/js/page_loader.js"></script>
+<script src="<?php echo ASSETS_URL; ?>js/page_loader.js"></script>
 </body>
 </html>

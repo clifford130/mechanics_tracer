@@ -19,9 +19,12 @@ if (isset($conn)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?> | Admin MechanicTracer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="/mechanics_tracer/assets/css/ux_enhancements.css">
-    <script>window.LOADER_MANUAL_INIT = true;</script>
-    <script src="/mechanics_tracer/assets/js/ux_enhancements.js"></script>
+    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>css/ux_enhancements.css">
+    <script>
+        window.PROJECT_BASE = "<?php echo BASE_URL; ?>";
+        window.LOADER_MANUAL_INIT = true;
+    </script>
+    <script src="<?php echo ASSETS_URL; ?>js/ux_enhancements.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background: #f4f6f8; min-height: 100vh; }

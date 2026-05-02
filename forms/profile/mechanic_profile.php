@@ -1,10 +1,15 @@
 <?php
 session_start();
-require_once("../config.php");
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 // Protect page
 if (!isset($_SESSION['user_id'])) {
-    header("Location: ../auth/login.php");
+    header("Location: " . FORMS_URL . "auth/login.php");
     exit();
 }
 

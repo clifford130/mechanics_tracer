@@ -73,7 +73,7 @@ const MT_Chat = {
         fd.append('booking_id', this.currentBookingId);
         fd.append('message', msg);
 
-        fetch('/mechanics_tracer/dashboard/api/chat.php?action=send', {
+        fetch((window.PROJECT_BASE || "/mechanics_tracer/") + "dashboard/api/chat.php?action=send", {
             method: 'POST',
             body: fd
         })
@@ -90,7 +90,7 @@ const MT_Chat = {
 
         if (isInitial) MT_Loader.showSection('chatMessages');
 
-        fetch(`/mechanics_tracer/dashboard/api/chat.php?action=fetch&booking_id=${this.currentBookingId}`)
+        fetch((window.PROJECT_BASE || "/mechanics_tracer/") + `dashboard/api/chat.php?action=fetch&booking_id=${this.currentBookingId}`)
         .then(res => res.json())
         .then(data => {
             if (isInitial) MT_Loader.hideSection('chatMessages');

@@ -1,6 +1,11 @@
 <?php
 session_start();
-include "../config.php";
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 require_once __DIR__ . "/../../admin/includes/rate_limit.php";
 
 $error = "";
@@ -88,8 +93,8 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | MechanicTracer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="/mechanics_tracer/assets/css/ux_enhancements.css">
-    <script src="/mechanics_tracer/assets/js/ux_enhancements.js"></script>
+    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>css/ux_enhancements.css">
+    <script src="<?php echo ASSETS_URL; ?>js/ux_enhancements.js"></script>
     <style>
         /* Reuse same styles as signup */
         body {

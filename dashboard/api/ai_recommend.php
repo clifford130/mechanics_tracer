@@ -1,8 +1,14 @@
 <?php
 session_start();
-require_once(__DIR__ . "/../../forms/config.php");
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 require_once(__DIR__ . "/ai_extract.php");
 require_once(__DIR__ . "/get_mechanics.php");
+require_once(__DIR__ . "/ai_config.php");
 
 header('Content-Type: application/json');
 
@@ -25,7 +31,7 @@ $driver_lat = isset($data['lat']) ? floatval($data['lat']) : null;
 $driver_lng = isset($data['lng']) ? floatval($data['lng']) : null;
 
 // Haversine formula to compute distance in KM
-function computeDistance($lat1, $lon1, $lat2, $lon2) {
+function computeDistance(?float $lat1, ?float $lon1, ?float $lat2, ?float $lon2) {
     if ($lat1 === null || $lon1 === null || $lat2 === null || $lon2 === null) return 50.0; // Assume far if unknown
     
     $earthRadius = 6371; // km

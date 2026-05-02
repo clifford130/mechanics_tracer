@@ -1,7 +1,17 @@
 <?php
 session_start();
-// include("../forms/config.php");
-require_once("../forms/config.php");
+// $root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+// if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+//     require_once($root . '/mechanics_tracer/forms/config.php');
+// } else {
+//     require_once($root . '/forms/config.php');
+// }
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 // protect page
 if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'driver'){
@@ -126,8 +136,8 @@ body{
     <div class="card">
       <img src="icons/profile.svg">
       <h3>My Profile</h3>
-      <button onclick="location.href='../forms/profile/driver_profile.php'">View</button>
-      <button><a href="../forms/profile/driver_profile.php"> edit profile</a></button>
+      <button onclick="location.href="<?php echo FORMS_URL; ?>profile/driver_profile.php"">View</button>
+      <button><a href="<?php echo FORMS_URL; ?>profile/driver_profile.php"> edit profile</a></button>
     </div>
 
     <div class="card">
@@ -145,7 +155,7 @@ body{
   </div>
 
   <div class="logout">
-    <a href="../forms/auth/logout.php">Logout</a>
+    <a href="<?php echo FORMS_URL; ?>auth/logout.php">Logout</a>
     
   </div>
 

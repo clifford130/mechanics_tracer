@@ -1,10 +1,15 @@
 <?php
 session_start();
-require_once($_SERVER['DOCUMENT_ROOT'] . "/mechanics_tracer/forms/config.php");
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 // Only drivers can cancel their bookings
 if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'driver'){
-    header("Location: /mechanics_tracer/forms/auth/login.php");
+    header("Location: " . BASE_URL . "forms/auth/login.php");
     exit();
 }
 
@@ -49,7 +54,7 @@ if($booking['booking_status'] != 'pending'){
 $stmt = $conn->prepare("UPDATE bookings SET booking_status='cancelled', updated_at=NOW() WHERE id=?");
 $stmt->bind_param("i", $booking_id);
 if($stmt->execute()){
-    header("Location: /mechanics_tracer/forms/bookings/driver_bookings.php");
+    header("Location: " . BASE_URL . "forms/bookings/driver_bookings.php");
     exit();
 } else {
     die("Failed to cancel booking. Please try again.");

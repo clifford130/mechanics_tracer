@@ -1,6 +1,11 @@
 <?php
 session_start();
-require_once __DIR__ . '/../forms/config.php';
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'driver') {
     header('Location: ' . FORMS_URL . 'auth/login.php');
@@ -164,13 +169,13 @@ $rated_list = $rated ? $rated->fetch_all(MYSQLI_ASSOC) : [];
       <p>Driver Profile</p>
     </div>
     <nav class="nav-links">
-      <a href="/mechanics_tracer/dashboard/driver_dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-      <a href="/mechanics_tracer/forms/profile/driver_profile.php"><i class="fas fa-user"></i> My Profile</a>
-      <a href="/mechanics_tracer/forms/bookings/driver_bookings.php"><i class="fas fa-calendar-check"></i> My Bookings</a>
-      <a href="/mechanics_tracer/dashboard/rate_mechanic.php" class="active"><i class="fas fa-star"></i> Ratings</a>
+      <a href="<?php echo BASE_URL; ?>dashboard/driver_dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+      <a href="<?php echo BASE_URL; ?>forms/profile/driver_profile.php"><i class="fas fa-user"></i> My Profile</a>
+      <a href="<?php echo BASE_URL; ?>forms/bookings/driver_bookings.php"><i class="fas fa-calendar-check"></i> My Bookings</a>
+      <a href="<?php echo BASE_URL; ?>dashboard/rate_mechanic.php" class="active"><i class="fas fa-star"></i> Ratings</a>
     </nav>
     <div class="sidebar-footer">
-      <a href="/mechanics_tracer/forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      <a href="<?php echo BASE_URL; ?>forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
   </aside>
 

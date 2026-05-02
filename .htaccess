@@ -1,0 +1,3 @@
+DirectoryIndex index.php
+RewriteEngine On
+# Optional: Add other rules here if needed

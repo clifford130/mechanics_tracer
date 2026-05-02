@@ -1,6 +1,11 @@
 <?php
 session_start();
-require_once($_SERVER['DOCUMENT_ROOT']."/mechanics_tracer/forms/config.php");
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 header('Content-Type: application/json');
 

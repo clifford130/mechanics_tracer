@@ -1,10 +1,15 @@
 <?php
 session_start();
-require_once($_SERVER['DOCUMENT_ROOT'] . "/mechanics_tracer/forms/config.php");
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 // Only drivers can access
 if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'driver'){
-    header("Location: /mechanics_tracer/forms/auth/login.php");
+    header("Location: " . BASE_URL . "forms/auth/login.php");
     exit();
 }
 
@@ -73,10 +78,10 @@ foreach($bookings as $b){
 <meta charset="UTF-8">
 <title>My Bookings</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-<link rel="stylesheet" href="/mechanics_tracer/assets/css/ux_enhancements.css">
-<link rel="stylesheet" href="/mechanics_tracer/assets/css/chat.css">
-<script src="/mechanics_tracer/assets/js/ux_enhancements.js"></script>
-<script src="/mechanics_tracer/assets/js/chat.js"></script>
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>css/ux_enhancements.css">
+<link rel="stylesheet" href="<?php echo ASSETS_URL; ?>css/chat.css">
+<script src="<?php echo ASSETS_URL; ?>js/ux_enhancements.js"></script>
+<script src="<?php echo ASSETS_URL; ?>js/chat.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 /* ===== RESET & GLOBAL ===== */
@@ -199,13 +204,13 @@ button:hover, .chat-icon:hover { opacity:0.85; }
       <p>Driver Profile</p>
     </div>
     <nav class="nav-links">
-      <a href="/mechanics_tracer/dashboard/driver_dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-      <a href="/mechanics_tracer/forms/profile/driver_profile.php"><i class="fas fa-user"></i> My Profile</a>
-      <a href="/mechanics_tracer/forms/bookings/driver_bookings.php" class="active"><i class="fas fa-calendar-check"></i> My Bookings</a>
-      <a href="/mechanics_tracer/dashboard/rate_mechanic.php"><i class="fas fa-star"></i> Ratings</a>
+      <a href="<?php echo BASE_URL; ?>dashboard/driver_dashboard.php"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+      <a href="<?php echo BASE_URL; ?>forms/profile/driver_profile.php"><i class="fas fa-user"></i> My Profile</a>
+      <a href="<?php echo BASE_URL; ?>forms/bookings/driver_bookings.php" class="active"><i class="fas fa-calendar-check"></i> My Bookings</a>
+      <a href="<?php echo BASE_URL; ?>dashboard/rate_mechanic.php"><i class="fas fa-star"></i> Ratings</a>
     </nav>
     <div class="sidebar-footer">
-      <a href="/mechanics_tracer/forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      <a href="<?php echo BASE_URL; ?>forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
   </aside>
 
@@ -220,7 +225,7 @@ button:hover, .chat-icon:hover { opacity:0.85; }
       </h2>
 
 <?php if(empty($bookings)): ?>
-    <p>You have no bookings yet. <a href="/mechanics_tracer/forms/bookings/book_mechanic.php">Book a mechanic now</a>.</p>
+    <p>You have no bookings yet. <a href="<?php echo BASE_URL; ?>forms/bookings/book_mechanic.php">Book a mechanic now</a>.</p>
 <?php else: ?>
 
     <?php if(!empty($active)): ?>
@@ -236,7 +241,7 @@ button:hover, .chat-icon:hover { opacity:0.85; }
                 </div>
                 <div class="actions">
                     <?php if($b['booking_status']=='pending'): ?>
-                        <form method="POST" action="/mechanics_tracer/forms/bookings/cancel_booking.php" onsubmit="return confirm('Are you sure you want to cancel this booking?');">
+                        <form method="POST" action="<?php echo BASE_URL; ?>forms/bookings/cancel_booking.php" onsubmit="return confirm('Are you sure you want to cancel this booking?');">
                             <input type="hidden" name="booking_id" value="<?php echo $b['id']; ?>">
                             <button type="submit" class="cancel">Cancel</button>
                         </form>
@@ -287,7 +292,7 @@ button:hover, .chat-icon:hover { opacity:0.85; }
             <span class="close" onclick="closeRateModal()">&times;</span>
         </div>
         <div style="padding: 20px;">
-            <form id="rateForm" method="POST" action="/mechanics_tracer/forms/bookings/submit_rating.php">
+            <form id="rateForm" method="POST" action="<?php echo BASE_URL; ?>forms/bookings/submit_rating.php">
                 <input type="hidden" name="booking_id" id="rateBookingId">
                 <p style="margin-bottom: 10px; font-weight: bold;">Rating (1-5 stars)</p>
                 <div class="star-rating" style="font-size: 24px; cursor: pointer; color: #ccc; margin-bottom: 15px;">

@@ -1,6 +1,11 @@
 <?php
 // get_mechanics.php - called internally by ai_recommend.php or client-side
-require_once(__DIR__ . "/../../forms/config.php");
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 function getMechanicsByServices($service_ids) {
     global $conn;

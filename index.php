@@ -1,10 +1,18 @@
+<?php 
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mechanic Tracer</title>
-  <link rel="stylesheet" href="landing.css" />
+  <link rel="stylesheet" href="<?php echo BASE_URL; ?>landing.css" />
 </head>
 <body>
 
@@ -12,8 +20,8 @@
   <nav class="navbar" aria-label="Main navigation">
     <h1 class="logo">🔧 MechanicTracer</h1>
     <div class="nav-actions">
-      <a href="../forms/auth/login.php" class="btn btn-outline">Login</a>
-      <a href="../forms/auth/signup.php" class="btn btn-primary">Sign Up</a>
+      <a href="<?php echo FORMS_URL; ?>auth/login.php" class="btn btn-outline">Login</a>
+      <a href="<?php echo FORMS_URL; ?>auth/signup.php" class="btn btn-primary">Sign Up</a>
     </div>
   </nav>
 </header>
@@ -27,8 +35,8 @@
       A smart platform to connect drivers with verified mechanics quickly and safely.
     </p>
     <div class="hero-buttons">
-      <a href="../forms/auth/signup.html" class="btn btn-primary">Get Started</a>
-      <!-- <a href="auth/login.php" class="btn btn-outline">Login</a> -->
+      <a href="<?php echo FORMS_URL; ?>auth/signup.php" class="btn btn-primary">Get Started</a>
+      <!-- <a href="<?php echo FORMS_URL; ?>auth/login.php" class="btn btn-outline">Login</a> -->
     </div>
   </section>
 

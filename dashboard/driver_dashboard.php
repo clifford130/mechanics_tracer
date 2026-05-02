@@ -1,6 +1,11 @@
 <?php
 session_start();
-require_once("../forms/config.php");
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'driver'){
     header("Location: " . FORMS_URL . "auth/login.php");
@@ -117,13 +122,16 @@ while ($row = $catRes->fetch_assoc()) {
     <title>Driver Dashboard | MechanicTracer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <link rel="stylesheet" href="/mechanics_tracer/assets/css/ux_enhancements.css">
-    <link rel="stylesheet" href="/mechanics_tracer/assets/css/chat.css">
-    <link rel="stylesheet" href="/mechanics_tracer/assets/css/ai_recommender.css">
-    <script>window.LOADER_MANUAL_INIT = true;</script>
-    <script src="/mechanics_tracer/assets/js/ux_enhancements.js"></script>
-    <script src="/mechanics_tracer/assets/js/chat.js"></script>
-    <script src="/mechanics_tracer/assets/js/ai_recommender.js"></script>
+    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>css/ux_enhancements.css">
+    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>css/chat.css">
+    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>css/ai_recommender.css">
+    <script>
+        window.PROJECT_BASE = "<?php echo BASE_URL; ?>";
+        window.LOADER_MANUAL_INIT = true;
+    </script>
+    <script src="<?php echo ASSETS_URL; ?>js/ux_enhancements.js"></script>
+    <script src="<?php echo ASSETS_URL; ?>js/chat.js"></script>
+    <script src="<?php echo ASSETS_URL; ?>js/ai_recommender.js"></script>
 <style>
 /* ===== RESET & GLOBAL ===== */
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',sans-serif;}
@@ -372,13 +380,13 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
       <p id="driverGreetingSub">Find and book mechanics near you</p>
     </div>
     <nav class="nav-links">
-      <a href="/mechanics_tracer/dashboard/driver_dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-      <a href="/mechanics_tracer/forms/profile/driver_profile.php"><i class="fas fa-user"></i> My Profile</a>
-      <a href="/mechanics_tracer/forms/bookings/driver_bookings.php"><i class="fas fa-calendar-check"></i> My Bookings</a>
-      <a href="/mechanics_tracer/dashboard/rate_mechanic.php"><i class="fas fa-star"></i> Ratings</a>
+      <a href="<?php echo BASE_URL; ?>dashboard/driver_dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+      <a href="<?php echo BASE_URL; ?>forms/profile/driver_profile.php"><i class="fas fa-user"></i> My Profile</a>
+      <a href="<?php echo BASE_URL; ?>forms/bookings/driver_bookings.php"><i class="fas fa-calendar-check"></i> My Bookings</a>
+      <a href="<?php echo BASE_URL; ?>dashboard/rate_mechanic.php"><i class="fas fa-star"></i> Ratings</a>
     </nav>
     <div class="sidebar-footer">
-      <a href="../forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
+      <a href="<?php echo FORMS_URL; ?>auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </div>
   </aside>
 
@@ -404,7 +412,7 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
           <strong style="color:#92400e;">You have <?php echo $pending_ratings_count; ?> completed job<?php echo $pending_ratings_count === 1 ? '' : 's'; ?> to rate</strong>
           <p style="margin:4px 0 0;font-size:0.9rem;color:#78350f;">Share feedback so other drivers can choose the best mechanics.</p>
         </div>
-        <a href="/mechanics_tracer/forms/bookings/driver_bookings.php" class="filter-btn" style="background:#0f172a;color:#f9fafb;border-color:#0f172a;text-decoration:none;">
+        <a href="<?php echo BASE_URL; ?>forms/bookings/driver_bookings.php" class="filter-btn" style="background:#0f172a;color:#f9fafb;border-color:#0f172a;text-decoration:none;">
           <i class="fas fa-star"></i> Rate now
         </a>
       </div>
@@ -613,7 +621,7 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
     }
 
     function bookMechanic(id){
-        window.location.href = "/mechanics_tracer/forms/bookings/book_mechanic.php?mechanic_id=" + id;
+        window.location.href = "/<?php echo BASE_URL; ?>forms/bookings/book_mechanic.php?mechanic_id=" + id;
     }
 
     // ----- LOAD MECHANICS -----

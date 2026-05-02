@@ -1,10 +1,15 @@
 <?php
 session_start();
-require_once($_SERVER['DOCUMENT_ROOT'] . "/mechanics_tracer/forms/config.php");
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 // Only mechanics can access
 if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'mechanic'){
-    header("Location: /mechanics_tracer/forms/auth/login.php");
+    header("Location: " . BASE_URL . "forms/auth/login.php");
     exit();
 }
 
@@ -99,11 +104,14 @@ else $greeting = "Good evening";
     <title>Mechanic Dashboard | MechanicTracer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <link rel="stylesheet" href="/mechanics_tracer/assets/css/ux_enhancements.css">
-    <link rel="stylesheet" href="/mechanics_tracer/assets/css/chat.css">
-    <script>window.LOADER_MANUAL_INIT = true;</script>
-    <script src="/mechanics_tracer/assets/js/ux_enhancements.js"></script>
-    <script src="/mechanics_tracer/assets/js/chat.js"></script>
+    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>css/ux_enhancements.css">
+    <link rel="stylesheet" href="<?php echo ASSETS_URL; ?>css/chat.css">
+    <script>
+        window.PROJECT_BASE = "<?php echo BASE_URL; ?>";
+        window.LOADER_MANUAL_INIT = true;
+    </script>
+    <script src="<?php echo ASSETS_URL; ?>js/ux_enhancements.js"></script>
+    <script src="<?php echo ASSETS_URL; ?>js/chat.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         body { background: #f4f6f8; display: flex; flex-direction: column; min-height: 100vh; }
@@ -512,13 +520,13 @@ else $greeting = "Good evening";
             <p><?php echo htmlspecialchars($greeting . ', ' . explode(' ', $mechanic_name)[0]); ?></p>
         </div>
         <nav class="nav-links">
-            <a href="/mechanics_tracer/dashboard/mechanic_dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-            <a href="/mechanics_tracer/dashboard/mechanic_dashboard.php#bookings"><i class="fas fa-calendar-check"></i> Bookings</a>
-            <a href="/mechanics_tracer/dashboard/mechanic_ratings.php"><i class="fas fa-star"></i> My Ratings</a>
-            <a href="/mechanics_tracer/forms/profile/mechanic_profile.php"><i class="fas fa-user-cog"></i> Profile</a>
+            <a href="<?php echo BASE_URL; ?>dashboard/mechanic_dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+            <a href="<?php echo BASE_URL; ?>dashboard/mechanic_dashboard.php#bookings"><i class="fas fa-calendar-check"></i> Bookings</a>
+            <a href="<?php echo BASE_URL; ?>dashboard/mechanic_ratings.php"><i class="fas fa-star"></i> My Ratings</a>
+            <a href="<?php echo BASE_URL; ?>forms/profile/mechanic_profile.php"><i class="fas fa-user-cog"></i> Profile</a>
         </nav>
         <div class="sidebar-footer">
-            <a href="/mechanics_tracer/forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            <a href="<?php echo BASE_URL; ?>forms/auth/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
     </aside>
 
@@ -626,7 +634,7 @@ else $greeting = "Good evening";
         <div class="card" id="ratings" style="margin-top:24px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                 <h2 style="font-size:1.1rem;color:#0f172a;margin:0;">Your Ratings</h2>
-                <a href="/mechanics_tracer/dashboard/mechanic_ratings.php" style="font-size:0.85rem;color:#3b82f6;text-decoration:none;">View all &rarr;</a>
+                <a href="<?php echo BASE_URL; ?>dashboard/mechanic_ratings.php" style="font-size:0.85rem;color:#3b82f6;text-decoration:none;">View all &rarr;</a>
             </div>
             <p style="margin-bottom:6px;">
                 <span style="color:#fbbf24;font-size:1.1rem;">
@@ -685,7 +693,7 @@ else $greeting = "Good evening";
         const formData = new FormData();
         formData.append('availability', isOnline ? 1 : 0);
         
-        fetch('/mechanics_tracer/dashboard/api/mechanic_status.php', {
+        fetch('/<?php echo BASE_URL; ?>dashboard/api/mechanic_status.php', {
             method: 'POST',
             body: formData
         })
@@ -926,18 +934,18 @@ else $greeting = "Good evening";
     }
 
     async function acceptBooking(id) {
-        const data = await postForm('/mechanics_tracer/forms/bookings/accept_booking.php', { booking_id: id });
+        const data = await postForm('/<?php echo BASE_URL; ?>forms/bookings/accept_booking.php', { booking_id: id });
         showPopup(data.message, data.status === 'success');
         if(data.status === 'success') reloadBookings();
     }
     async function completeBooking(id) {
-        const data = await postForm('/mechanics_tracer/forms/bookings/complete_booking.php', { booking_id: id });
+        const data = await postForm('/<?php echo BASE_URL; ?>forms/bookings/complete_booking.php', { booking_id: id });
         showPopup(data.message, data.status === 'success');
         if(data.status === 'success') reloadBookings();
     }
     async function cancelBooking(id) {
         if(!confirm('Cancel this booking?')) return;
-        const data = await postForm('/mechanics_tracer/forms/bookings/cancel_booking.php', { booking_id: id });
+        const data = await postForm('/<?php echo BASE_URL; ?>forms/bookings/cancel_booking.php', { booking_id: id });
         showPopup(data.message, data.status === 'success');
         if(data.status === 'success') reloadBookings();
     }
@@ -1008,7 +1016,7 @@ else $greeting = "Good evening";
 
 <?php
 // Helper function to render a booking card (no phone number)
-function renderBooking($bookings, $mechanic_lat, $mechanic_lng) {
+function renderBooking(array $bookings, ?float $mechanic_lat, ?float $mechanic_lng) {
     foreach($bookings as $b):
         $driver_lat = ($b['driver_latitude'] === null ? 'null' : $b['driver_latitude']);
         $driver_lng = ($b['driver_longitude'] === null ? 'null' : $b['driver_longitude']);

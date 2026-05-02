@@ -8,7 +8,12 @@
  *        Or use defaults below for quick setup (change password immediately after).
  */
 session_start();
-require_once __DIR__ . '/../forms/config.php';
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 // Security: refuse to run if an admin already exists
 $check = $conn->query("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
@@ -17,7 +22,7 @@ if ($check && $check->num_rows > 0) {
     <html><body style="font-family:sans-serif;padding:40px;">
     <h2>Admin already exists</h2>
     <p>Delete this file (<code>admin/create_admin_once.php</code>) for security.</p>
-    <p><a href="../forms/auth/login.php">Go to Login</a></p>
+    <p><a href="<?php echo FORMS_URL; ?>auth/login.php">Go to Login</a></p>
     </body></html>');
 }
 
@@ -87,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="box">
             <strong>Admin created.</strong> Log in at the main login page, then <strong>delete this file</strong>.
         </div>
-        <a href="../forms/auth/login.php">Go to Login</a>
+        <a href="<?php echo FORMS_URL; ?>auth/login.php">Go to Login</a>
     <?php else: ?>
         <?php if ($error): ?><div class="box err"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
         <form method="POST">

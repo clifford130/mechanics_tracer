@@ -1,6 +1,11 @@
 <?php
 session_start();
-require_once($_SERVER['DOCUMENT_ROOT'] . "/mechanics_tracer/forms/config.php");
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 if(!isset($_SESSION['user_id']) || $_SESSION['role'] != 'driver'){
     die("Unauthorized");
@@ -44,7 +49,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['booking_id'], $_POST['s
     $rc->execute();
     if($rc->get_result()->num_rows > 0) {
         // Already rated
-        header("Location: /mechanics_tracer/forms/bookings/driver_bookings.php");
+        header("Location: " . BASE_URL . "forms/bookings/driver_bookings.php");
         exit;
     }
     
@@ -52,9 +57,9 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['booking_id'], $_POST['s
     $ins->bind_param("iiiis", $booking_id, $driver_id, $mechanic_id, $stars, $review);
     $ins->execute();
     
-    header("Location: /mechanics_tracer/forms/bookings/driver_bookings.php");
+    header("Location: " . BASE_URL . "forms/bookings/driver_bookings.php");
     exit;
 } else {
-    header("Location: /mechanics_tracer/forms/bookings/driver_bookings.php");
+    header("Location: " . BASE_URL . "forms/bookings/driver_bookings.php");
     exit;
 }

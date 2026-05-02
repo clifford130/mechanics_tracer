@@ -1,5 +1,10 @@
 <?php
-require_once __DIR__ . '/../forms/config.php';
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 
@@ -130,7 +135,7 @@ function loadUsers(page) {
 
     document.getElementById('loadingSpinner').style.display = 'block';
 
-    fetch('/mechanics_tracer/admin/api/users_api.php?' + params)
+    fetch('/<?php echo BASE_URL; ?>admin/api/users_api.php?' + params)
         .then(r => r.json())
         .then(data => {
             document.getElementById('loadingSpinner').style.display = 'none';
@@ -254,7 +259,7 @@ function doAction(uid, action, btn) {
     fd.append('action',  action);
     fd.append('_csrf',   currentCsrf);
 
-    fetch('/mechanics_tracer/admin/api/users_api.php', { method: 'POST', body: fd })
+    fetch('/<?php echo BASE_URL; ?>admin/api/users_api.php', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(res => {
             showToast(res.msg, res.ok ? '#10b981' : '#dc2626');

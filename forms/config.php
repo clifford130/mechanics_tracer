@@ -1,26 +1,27 @@
 <?php
-// Base URL relative to your web root
-// define("BASE_URL", "/new/forms/");
-// define('DASHBOARD_URL', '/new/dashboard/');
-// // define("BASE_URL", "http://localhost/new/");
+/**
+ * forms/config.php
+ * Main configuration and database connection.
+ * This file is included by almost all other PHP files.
+ */
 
-// project root URL
-define("BASE_URL", "http://localhost/mechanics_tracer/");
+// Include the environment-aware path loader
+// Note: We use a relative path here because config_loader.php is in the root,
+// and forms/config.php is always in the /forms/ directory relative to root.
+// However, the rule says use absolute paths for includes.
+// To be safe and compliant with the "Smart Loader" logic:
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/config_loader.php')) {
+    require_once($root . '/mechanics_tracer/config_loader.php');
+} else {
+    require_once($root . '/config_loader.php');
+}
 
-// forms folder URL
-define("FORMS_URL", BASE_URL . "forms/");
-
-// dashboard folder URL
-define("DASHBOARD_URL", BASE_URL . "dashboard/");
-define("DASHBOARD_PATH", $_SERVER['DOCUMENT_ROOT'] . "/mechanics_tracer/dashboard/");
-
-// Admin panel URL (used for redirects)
-define("ADMIN_URL", BASE_URL . "admin/");
-
+// Database Configuration
 $host = "localhost";
-$db_name = "mechanics_tracer"; // use your database name
-$username = "root";          // your DB username
-$password = "";              // your DB password
+$db_name = "mechanics_tracer"; 
+$username = "root";          
+$password = "";              
 
 // Create connection
 $conn = new mysqli($host, $username, $password, $db_name);
@@ -29,7 +30,4 @@ $conn = new mysqli($host, $username, $password, $db_name);
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
-// else{
-//     echo "connect sucess";
-// }
-// ?>
+?>

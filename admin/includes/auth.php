@@ -7,6 +7,6 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
-    header('Location: ' . (defined('FORMS_URL') ? FORMS_URL : 'http://localhost/mechanics_tracer/forms/') . 'auth/login.php');
+    header('Location: ' . (defined('FORMS_URL') ? FORMS_URL : 'http://localhost/<?php echo BASE_URL; ?>forms/') . 'auth/login.php');
     exit;
 }

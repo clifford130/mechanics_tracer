@@ -1,6 +1,11 @@
 <?php
 // ai_extract.php - Not called directly from browser, only internally by ai_recommend.php
-require_once(__DIR__ . "/ai_config.php");
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
 function extractServiceIDs($problem_text, $services_list) {
     if (empty(AI_API_KEY)) {

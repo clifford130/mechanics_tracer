@@ -137,7 +137,7 @@ const AIRecommender = {
         const lat = window.driverLat || null;
         const lng = window.driverLng || null;
 
-        fetch('/mechanics_tracer/dashboard/api/ai_recommend.php', {
+        fetch((window.PROJECT_BASE || "/mechanics_tracer/") + "dashboard/api/ai_recommend.php", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ problem, lat, lng })
@@ -245,7 +245,7 @@ const AIRecommender = {
         const btnRow = document.querySelector(`#mech-card-${mechanicId} .mech-actions`);
         if (btnRow) btnRow.innerHTML = `<span style="font-size:0.85rem; color:#64748b;">Booking...</span>`;
 
-        fetch('/mechanics_tracer/dashboard/api/inline_book_mechanic.php', {
+        fetch((window.PROJECT_BASE || "/mechanics_tracer/") + "dashboard/api/inline_book_mechanic.php", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
