@@ -135,7 +135,7 @@ function loadUsers(page) {
 
     document.getElementById('loadingSpinner').style.display = 'block';
 
-    fetch('/<?php echo BASE_URL; ?>admin/api/users_api.php?' + params)
+    fetch('<?php echo BASE_URL; ?>admin/api/users_api.php?' + params)
         .then(r => r.json())
         .then(data => {
             document.getElementById('loadingSpinner').style.display = 'none';
@@ -259,7 +259,7 @@ function doAction(uid, action, btn) {
     fd.append('action',  action);
     fd.append('_csrf',   currentCsrf);
 
-    fetch('/<?php echo BASE_URL; ?>admin/api/users_api.php', { method: 'POST', body: fd })
+    fetch('<?php echo BASE_URL; ?>admin/api/users_api.php', { method: 'POST', body: fd })
         .then(r => r.json())
         .then(res => {
             showToast(res.msg, res.ok ? '#10b981' : '#dc2626');

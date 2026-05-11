@@ -347,6 +347,7 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
     margin-right: 6px;
 }
 
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1024px){
     #map{height:calc(100vh - 120px);}
@@ -449,6 +450,12 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
 
     <!-- Map with instruction overlay -->
     <div class="map-wrapper">
+      <div id="location-error" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.9); z-index:100; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px;">
+        <i class="fas fa-exclamation-triangle" style="font-size:3rem; color:#ef4444; margin-bottom:1rem;"></i>
+        <h2 style="color:#1e293b; margin-bottom:0.5rem;">Location Required</h2>
+        <p style="color:#64748b; max-width:400px; margin-bottom:1.5rem;">Location access is required to use this service. Please enable GPS and try again.</p>
+        <button onclick="location.reload()" style="background:#0f172a; color:white; border:none; padding:12px 24px; border-radius:999px; font-weight:600; cursor:pointer;">Retry Access</button>
+      </div>
       <div class="map-instruction"><i class="fas fa-hand-pointer"></i> Click a marker to view & book</div>
       <div id="map" aria-label="Nearby mechanics map"></div>
     </div>
@@ -509,12 +516,12 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
     console.log('Mechanics loaded:', mechanics.length);
 
     // ----- MAP INIT -----
-    var driverLat = -1.286389;
-    var driverLng = 36.817223;
+    var driverLat = null;
+    var driverLng = null;
     var driverIcon = L.icon({iconUrl:'https://cdn-icons-png.flaticon.com/512/684/684908.png',iconSize:[32,32],iconAnchor:[16,32]});
     var mechanicIcon = L.icon({iconUrl:'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',iconSize:[25,41],iconAnchor:[12,41],popupAnchor:[1,-34]});
 
-    var map = L.map('map', {preferCanvas:true}).setView([driverLat,driverLng],13);
+    var map = L.map('map', {preferCanvas:true}).setView([0,0],2);
     window._mapInstance = map;
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
 
@@ -621,7 +628,7 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
     }
 
     function bookMechanic(id){
-        window.location.href = "/<?php echo BASE_URL; ?>forms/bookings/book_mechanic.php?mechanic_id=" + id;
+        window.location.href = "<?php echo BASE_URL; ?>forms/bookings/book_mechanic.php?mechanic_id=" + id;
     }
 
     // ----- LOAD MECHANICS -----
@@ -668,7 +675,7 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
             fitMapOnce();
 
         }).catch(err => {
-            console.warn("Error loading mechanics", err);
+            console.warn("Error loading mechanics please try again", err);
             mechanicsLoaded = true;
             fitMapOnce();
 
@@ -676,23 +683,34 @@ body{background:#f4f6f8;display:flex;flex-direction:column;min-height:100vh;over
     }
 
     // ----- GEOLOCATION -----
+    function handleLocationError(error) {
+        console.error("Location error:", error);
+        document.getElementById('location-error').style.display = 'flex';
+        document.getElementById('filterBtn').disabled = true;
+        document.getElementById('filterBtn').style.opacity = '0.5';
+        document.getElementById('filterBtn').style.cursor = 'not-allowed';
+    }
+
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(pos) {
             driverLat = pos.coords.latitude;
             driverLng = pos.coords.longitude;
+            
+            if (!driverLat || !driverLng) {
+                handleLocationError("error fetching coordinates!!  Please try again");
+                return;
+            }
+
             if (driverMarker) map.removeLayer(driverMarker);
             driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon }).addTo(map).bindPopup("📍 You are here").openPopup();
+            map.setView([driverLat, driverLng], 13);
             resizeMap();
             loadMechanics();
         }, function(err) {
-            driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon }).addTo(map);
-            resizeMap();
-            loadMechanics();
-        }, { enableHighAccuracy: true, timeout: 5000 });
+            handleLocationError(err);
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
     } else {
-        driverMarker = L.marker([driverLat, driverLng], { icon: driverIcon }).addTo(map);
-        resizeMap();
-        loadMechanics();
+        handleLocationError("We can’t access your location right now. Please enable location permission for this site in your browser settings, then refresh the page to continue.");
     }
 
     setTimeout(function(){ resizeMap(); }, 300);

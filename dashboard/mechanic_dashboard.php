@@ -693,7 +693,7 @@ else $greeting = "Good evening";
         const formData = new FormData();
         formData.append('availability', isOnline ? 1 : 0);
         
-        fetch('/<?php echo BASE_URL; ?>dashboard/api/mechanic_status.php', {
+        fetch('<?php echo BASE_URL; ?>dashboard/api/mechanic_status.php', {
             method: 'POST',
             body: formData
         })
@@ -934,18 +934,18 @@ else $greeting = "Good evening";
     }
 
     async function acceptBooking(id) {
-        const data = await postForm('/<?php echo BASE_URL; ?>forms/bookings/accept_booking.php', { booking_id: id });
+        const data = await postForm('<?php echo BASE_URL; ?>forms/bookings/accept_booking.php', { booking_id: id });
         showPopup(data.message, data.status === 'success');
         if(data.status === 'success') reloadBookings();
     }
     async function completeBooking(id) {
-        const data = await postForm('/<?php echo BASE_URL; ?>forms/bookings/complete_booking.php', { booking_id: id });
+        const data = await postForm('<?php echo BASE_URL; ?>forms/bookings/complete_booking.php', { booking_id: id });
         showPopup(data.message, data.status === 'success');
         if(data.status === 'success') reloadBookings();
     }
     async function cancelBooking(id) {
         if(!confirm('Cancel this booking?')) return;
-        const data = await postForm('/<?php echo BASE_URL; ?>forms/bookings/cancel_booking.php', { booking_id: id });
+        const data = await postForm('<?php echo BASE_URL; ?>forms/bookings/cancel_booking.php', { booking_id: id });
         showPopup(data.message, data.status === 'success');
         if(data.status === 'success') reloadBookings();
     }

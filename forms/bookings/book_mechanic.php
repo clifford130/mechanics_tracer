@@ -77,7 +77,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
         if($stmt->affected_rows > 0){
             $booking_id = $stmt->insert_id;
             // Adjust chat.php path if needed
-            header("Location: /<?php echo BASE_URL; ?>forms/bookings/driver_bookings.php?booking_id=".$booking_id);
+            header("Location: <?php echo BASE_URL; ?>forms/bookings/driver_bookings.php?booking_id=".$booking_id);
             exit();
         } else {
             $error = "Failed to create booking. Please try again.";
@@ -378,6 +378,12 @@ $mechanic_services = explode(",", $mechanic['services_offered']);
         </div>
 
         <section class="booking-shell">
+            <div id="location-error" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:2000; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px;">
+                <i class="fas fa-map-marker-alt" style="font-size:4rem; color:#ef4444; margin-bottom:1.5rem;"></i>
+                <h2 style="color:#1e293b; margin-bottom:0.8rem; font-size:2rem;">Location Required</h2>
+                <p style="color:#64748b; max-width:450px; margin-bottom:2rem; font-size:1.1rem;">Location access is required to use this service. Please enable GPS and try again.</p>
+                <button onclick="location.reload()" style="background:#0f172a; color:white; border:none; padding:15px 35px; border-radius:999px; font-weight:700; cursor:pointer; font-size:1rem; box-shadow:0 4px 15px rgba(0,0,0,0.1);">Enable GPS & Retry</button>
+            </div>
             <div class="summary">
                 <div class="summary-title"><?php echo htmlspecialchars($mechanic['garage_name']); ?></div>
                 <div class="summary-sub">Specialized in <?php echo htmlspecialchars($mechanic['vehicle_types']); ?></div>
@@ -428,8 +434,8 @@ $mechanic_services = explode(",", $mechanic['services_offered']);
                         <button type="button" class="btn-secondary" onclick="window.history.back();">
                             <i class="fas fa-arrow-left"></i> Cancel
                         </button>
-                        <button type="submit" class="btn-primary">
-                            <i class="fas fa-paper-plane"></i> Send booking
+                        <button type="submit" class="btn-primary" id="submitBooking" disabled style="opacity:0.5; cursor:not-allowed;">
+                            <i class="fas fa-paper-plane"></i> Send booking (Detecting Location...)
                         </button>
                     </div>
                     <p class="hint">You can track and manage this request from the “My bookings” section.</p>
@@ -440,17 +446,48 @@ $mechanic_services = explode(",", $mechanic['services_offered']);
 </div>
 
 <script>
-// Get driver's location
+// Get driver's location with strict verification
+const submitBtn = document.getElementById('submitBooking');
+const locationError = document.getElementById('location-error');
+
+function handleLocationError(error) {
+    console.error("Geolocation error:", error);
+    locationError.style.display = 'flex';
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-lock"></i> Location Required';
+}
+
 if(navigator.geolocation){
     navigator.geolocation.getCurrentPosition(function(position){
-        document.getElementById('driver_latitude').value = position.coords.latitude;
-        document.getElementById('driver_longitude').value = position.coords.longitude;
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        if (lat && lng) {
+            document.getElementById('driver_latitude').value = lat;
+            document.getElementById('driver_longitude').value = lng;
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send booking';
+        } else {
+            handleLocationError("We couldn’t get your location data. Please try again.");
+        }
     }, function(err){
-        console.warn("Geolocation error: " + err.message);
-    });
+        handleLocationError(err);
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
 } else {
-    alert("Geolocation is not supported by your browser.");
+    handleLocationError("We can’t access your location right now. Please enable location permission for this site in your browser settings, then refresh the page to continue.");
 }
+
+document.getElementById('bookingForm').addEventListener('submit', function(e) {
+    const lat = document.getElementById('driver_latitude').value;
+    const lng = document.getElementById('driver_longitude').value;
+    
+    if (!lat || !lng || lat == 0 || lng == 0) {
+        e.preventDefault();
+        handleLocationError("We couldn't access your location. Please enable location permission and try again.");
+    }
+});
 </script>
 
 </body>

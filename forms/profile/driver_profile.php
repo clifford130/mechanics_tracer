@@ -1,37 +1,18 @@
 <?php
-// session_start();
-// $root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
-// if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
-//     require_once($root . '/mechanics_tracer/forms/config.php');
-// } else {
-//     require_once($root . '/forms/config.php');
-// }
+$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
+if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
+    require_once($root . '/mechanics_tracer/forms/config.php');
+} else {
+    require_once($root . '/forms/config.php');
+}
 
-// // Protect page
-// if(!isset($_SESSION['user_id'])){
-//     header("Location: " . FORMS_URL . "auth/login.php");
-//     exit();
-// }
+session_start();
 
-
-// session_start();
-// // $root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
-// // if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
-// //     require_once($root . '/mechanics_tracer/forms/config.php');
-// // } else {
-// //     require_once($root . '/forms/config.php');
-// // }
-// $root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
-// if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
-//     require_once($root . '/mechanics_tracer/forms/config.php');
-// } else {
-//     require_once($root . '/forms/config.php');
-// }
-// // Protect page
-// if(!isset($_SESSION['user_id'])){
-//     header("Location: " . FORMS_URL . "auth/login.php");
-//     exit();
-// }
+// Protect page
+if(!isset($_SESSION['user_id'])){
+    header("Location: " . FORMS_URL . "auth/login.php");
+    exit();
+}
 
 // $user_id = $_SESSION['user_id'];
 // $error = "";
@@ -93,13 +74,7 @@
     //     }
     // }
 // }
-session_start();
-$root = rtrim($_SERVER['DOCUMENT_ROOT'], '/');
-if (file_exists($root . '/mechanics_tracer/forms/config.php')) {
-    require_once($root . '/mechanics_tracer/forms/config.php');
-} else {
-    require_once($root . '/forms/config.php');
-}
+// (Includes already handled at top)
 
 // Protect page
 if(!isset($_SESSION['user_id'])){
@@ -183,7 +158,7 @@ if($_SERVER["REQUEST_METHOD"] == "POST"){
             $_SESSION['role'] = "driver";
             $_SESSION['profile_completed'] = 1;
 
-            header("Location: /new/dashboard/driver_dashboard.php");
+            header("Location: " . BASE_URL . "dashboard/driver_dashboard.php");
             exit();
 
         } else {

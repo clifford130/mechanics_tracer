@@ -165,7 +165,7 @@ if ($svcRes) {
 }
 
 // Pre-fill values from POST or existing mechanic record
-function old_or_existing($key, $default = '') {
+function old_or_existing(string $key, string $default = '') {
     global $existing;
     if ($_SERVER["REQUEST_METHOD"] == "POST") {
         return htmlspecialchars(trim($_POST[$key] ?? ''), ENT_QUOTES);

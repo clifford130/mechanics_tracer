@@ -17,7 +17,7 @@ $user_id = $_SESSION['user_id'];
 
 // Check if booking_id is provided
 if(!isset($_POST['booking_id']) || empty($_POST['booking_id'])){
-    die("Booking ID is required.");
+    die("We couldn’t process your request. Please try again.");
 }
 
 $booking_id = intval($_POST['booking_id']);
@@ -30,7 +30,7 @@ $result = $stmt->get_result();
 $driver = $result->fetch_assoc();
 
 if(!$driver){
-    die("Driver profile not found.");
+    die("Driver profile not found. Please contact support if this continues.");
 }
 
 $driver_id = $driver['id'];
@@ -43,11 +43,11 @@ $result = $stmt->get_result();
 $booking = $result->fetch_assoc();
 
 if(!$booking){
-    die("Booking not found or you are not authorized.");
+    die("You’re not authorized to access this booking. Please contact support if this continues.");
 }
 
 if($booking['booking_status'] != 'pending'){
-    die("Only pending bookings can be cancelled.");
+    die("We couldn’t cancel your booking. Please try again later.");
 }
 
 // Update booking status to cancelled
@@ -57,6 +57,6 @@ if($stmt->execute()){
     header("Location: " . BASE_URL . "forms/bookings/driver_bookings.php");
     exit();
 } else {
-    die("Failed to cancel booking. Please try again.");
+    die("We’re unable to cancel your booking right now. Please try again later.");
 }
 ?>
